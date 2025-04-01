@@ -1,4 +1,0 @@
-{
-  "onnx-model":  "PhotiLines.onnx",
-  "patch_size": 512
-}

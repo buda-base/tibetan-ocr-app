@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BDRC Tibetan OCR</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" type="image/png" href="assets/BUDA-cropped.png" />
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Font Awesome for icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <div class="logo">
+          <img src="assets/BUDA-cropped.png" alt="BUDA Logo" />
+          <h1>BDRC Tibetan OCR</h1>
+        </div>
+        <p class="tagline">Advanced Tibetan Text Recognition</p>
+      </div>
+    </header>
+
+    <section class="download">
+      <div class="container">
+        <h2>Download for Your Platform</h2>
+        <div class="download-buttons">
+          <a
+            href="https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.1/bdrc_ocr_windows_x64_0.1.zip"
+            class="download-btn windows"
+            id="windows-download"
+          >
+            <i class="fab fa-windows"></i>
+            <span>Windows</span>
+          </a>
+          <a
+            href="https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.1/bdrc_ocr_macos_arm64_0.1.zip"
+            class="download-btn mac"
+            id="mac-silicon-download"
+          >
+            <i class="fab fa-apple"></i>
+            <span>macOS (Silicon)</span>
+          </a>
+          <a
+            href="https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.1/bdrc_ocr_macos_x64_0.1.zip"
+            class="download-btn mac"
+            id="mac-intel-download"
+          >
+            <i class="fab fa-apple"></i>
+            <span>macOS (Intel)</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="container">
+        <h2>Features</h2>
+
+        <!-- Feature 1 -->
+        <div class="feature-row">
+          <div
+            class="feature-image"
+            style="
+              width: 100%;
+              min-height: 300px;
+              background-image: url('assets/feature-tibetan-scripts.jpg');
+              background-size: cover;
+              background-position: center;
+            "
+          ></div>
+          <div class="feature-text">
+            <h3>Trained to Recognize Various Tibetan Scripts</h3>
+            <p>
+              Our OCR engine has been trained on a diverse collection of Tibetan
+              scripts, ensuring accurate recognition across different text
+              styles and formats.
+            </p>
+          </div>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="feature-row reverse">
+          <div class="feature-text">
+            <h3>Batch Processing for Images and PDFs</h3>
+            <p>
+              Process multiple images or entire PDF documents in a single
+              operation. Save time and effort when working with large
+              collections of images or multi-page documents with our efficient
+              batch processing capabilities.
+            </p>
+          </div>
+          <div class="feature-image">
+            <img
+              src="assets/feature-batch-processing.jpg"
+              alt="Batch Processing for Images and PDFs"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-links">
+            <a
+              href="https://github.com/buda-base/tibetan-ocr-app/"
+              class="github-link"
+            >
+              <i class="fab fa-github"></i>
+              <span>GitHub Repository</span>
+            </a>
+            <a href="https://www.bdrc.io/" class="bdrc-link">
+              <img src="assets/BDRC.png" alt="BDRC Logo" />
+              <span>BDRC Website</span>
+            </a>
+          </div>
+          <p class="copyright">
+            &copy; 2025 Buddhist Digital Resource Center. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>

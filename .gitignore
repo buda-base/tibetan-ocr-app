@@ -174,3 +174,8 @@ main.build
 main.dist
 Models
 download_models.py
+<<<<<<< HEAD
+=======
+
+>>>>>>> b010e93 (Adds a nice landing page for the project)
+poppler*/
