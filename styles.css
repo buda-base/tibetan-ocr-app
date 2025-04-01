@@ -348,6 +348,7 @@ header .container {
   position: relative;
   padding-bottom: 15px;
   letter-spacing: -0.5px;
+  text-wrap-style: balance;
 }
 
 .feature-text h3::after {
