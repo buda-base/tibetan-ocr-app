@@ -26,7 +26,7 @@ class ExportDialog(QDialog):
         self.ocr_data = ocr_data
         self.encoding = active_encoding
         self.output_dir = "/"
-        self.main_label = QLabel("Export OCR Data")
+        self.main_label = QLabel("Export OCR Data. Please select output directory:")
         self.main_label.setObjectName("OptionsLabel")
         self.exporter_group, self.exporter_buttons = build_exporter_settings()
         self.encodings_group, self.encoding_buttons = build_encodings(self.encoding)
@@ -95,22 +95,23 @@ class ExportDialog(QDialog):
         if self.output_dir == "":
             return
 
-        selected_id = self.exporter_group.checkedId()
+        selected_exporter_id = self.exporter_group.checkedId()
         selected_encoding_id = self.encodings_group.checkedId()
 
         # create exporter based on selection
-        if selected_id == 0:
+        if selected_exporter_id == 0:
             exporter = TextExporter(self.output_dir)
-        elif selected_id == 1:
+        elif selected_exporter_id == 1:
             exporter = PageXMLExporter(self.output_dir)
-        elif selected_id == 2:
+        elif selected_exporter_id == 2:
             exporter = JsonExporter(self.output_dir)
         else:
             exporter = TextExporter(self.output_dir)
 
         # export all data
+        print(f"Exporting OCR data for {len(self.ocr_data)} images")
         for data in self.ocr_data:
-            exporter.export(data, selected_encoding_id)
+            exporter.export_lines(None, data.image_name, data.lines, data.ocr_lines)
 
         self.accept()
 
