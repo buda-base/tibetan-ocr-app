@@ -8,6 +8,7 @@ from typing import Dict, List
 from PySide6.QtCore import Signal, Qt, QThreadPool
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QSplitter, QLabel, QMessageBox, QFileDialog
 from pdf2image import convert_from_path, pdfinfo_from_path
+import Config
 from BDRC.Styles import DARK
 from BDRC.Inference import OCRPipeline
 from BDRC.Data import OpStatus, Platform, OCRData, OCRModel, OCResult
@@ -121,8 +122,10 @@ class AppView(QWidget):
                  platform: Platform):
         super().__init__()
 
+        appVersion = '.'.join(str(i) for i in Config.APP_VERSION)
+
         self.setObjectName("MainWindow")
-        self.setWindowTitle("BDRC OCR [BETA] 0.1")
+        self.setWindowTitle(f"BDRC OCR [BETA] {appVersion}")
         self.setContentsMargins(0, 0, 0, 0)
         self.platform = platform
         self.threadpool = QThreadPool()

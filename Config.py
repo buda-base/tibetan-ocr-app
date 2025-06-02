@@ -11,6 +11,8 @@ from BDRC.Data import (
     OCRArchitecture
 )
 
+APP_VERSION = (0, 2)
+
 """
 Mappings for each data type
 """
