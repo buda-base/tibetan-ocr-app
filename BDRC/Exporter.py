@@ -39,9 +39,9 @@ class Exporter:
     @abc.abstractmethod
     def export_lines(
         self,
-        image: npt.NDArray,
+        image: npt.NDArray | None,
         image_name: str,
-        line_data: List[Line],
+        lines: List[Line],
         text_lines: List[str],
     ):
         """ Exports text lines and line informations """
@@ -163,7 +163,7 @@ class PageXMLExporter(Exporter):
 
     def export_lines(
         self,
-        image: np.array,
+        image: npt.NDArray | None,
         image_name: str,
         lines: List[Line],
         text_lines: List[OCRLine],
@@ -215,7 +215,7 @@ class TextExporter(Exporter):
 
     def export_lines(
             self,
-            image: np.array,
+            image: npt.NDArray | None,
             image_name: str,
             lines: List[Line],
             text_lines: list[OCRLine],
@@ -244,7 +244,7 @@ class JsonExporter(Exporter):
 
     def export_lines(
         self,
-        image: np.array,
+        image: npt.NDArray | None,
         image_name: str,
         lines: List[Line],
         text_lines: list[OCRLine],
