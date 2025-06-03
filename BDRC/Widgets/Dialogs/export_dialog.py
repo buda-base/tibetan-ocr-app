@@ -59,7 +59,7 @@ class ExportDialog(QDialog):
             export_layout.addWidget(btn)
 
         self.button_h_layout = QHBoxLayout()
-        self.ok_btn = QPushButton("Ok")
+        self.ok_btn = QPushButton("Export")
         self.ok_btn.setObjectName("DialogButton")
         self.cancel_btn = QPushButton("Cancel", parent=self)
         self.cancel_btn.setObjectName("DialogButton")

@@ -107,7 +107,7 @@ class ToolBox(QWidget):
         self.new_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "new_light.png")
         self.import_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "import.png")
         self.import_pdf_icon = os.path.join(execution_dir, "Assets", "Textures", "pdf_import.png")
-        self.save_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "save-disc.png")
+        self.export_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "save-disc.png")
         self.run_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "play_btn.png")
         self.run_all_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "play_all_btn.png")
         self.settings_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "settings.png")
@@ -133,9 +133,9 @@ class ToolBox(QWidget):
             height=self.icon_size,
         )
 
-        self.btn_save = MenuButton(
-            "Save Output",
-            self.save_btn_icon,
+        self.btn_export = MenuButton(
+            "Export Output",
+            self.export_btn_icon,
             width=self.icon_size,
             height=self.icon_size,
         )
@@ -178,7 +178,7 @@ class ToolBox(QWidget):
         self.btn_new.clicked.connect(self.new)
         self.btn_import_images.clicked.connect(self.load_images)
         self.btn_import_pdf.clicked.connect(self.import_pdf)
-        self.btn_save.clicked.connect(self.save)
+        self.btn_export.clicked.connect(self.save)
         self.btn_run.clicked.connect(self.run)
         self.btn_run_all.clicked.connect(self.run_all)
         self.btn_settings.clicked.connect(self.settings)
@@ -192,7 +192,7 @@ class ToolBox(QWidget):
         self.layout.addWidget(self.btn_new)
         self.layout.addWidget(self.btn_import_images)
         self.layout.addWidget(self.btn_import_pdf)
-        self.layout.addWidget(self.btn_save)
+        self.layout.addWidget(self.btn_export)
         self.layout.addWidget(self.btn_run)
         self.layout.addWidget(self.btn_run_all)
         self.layout.addWidget(self.btn_settings)
