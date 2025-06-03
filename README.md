@@ -21,16 +21,16 @@ See our [Huggingface account](https://huggingface.co/BDRC) for the open access p
 ##### Windows
 
 1. Download and unzip https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.2/bdrc_ocr_windows_x64_0.2.zip
-2. Run `main.exe`
+2. Run the `.exe`
 
 ##### OSX
 
-This app does not have a package for MacOS on Intel processors at the moment (contributions welcome!). For Apple (M1, M2, etc.) processors:
+This app have packages for MacOS X on both Intel (x64) processors and Silicon/ARM (M1, M2, etc.) processors available.
 
 1. Download and unzip
 
-- for recent hardware https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.2/bdrc_ocr_macos_arm64_0.2.zip
-- for older x64 (Intel) processor https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.2/bdrc_ocr_macos_x64_0.2.zip
+- For recent hardware (M1, M2, etc.): https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.2/bdrc_ocr_macos_arm64_0.2.zip
+- For older x64 (Intel) processors: https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.2/bdrc_ocr_macos_x64_0.2.zip
 
 2. Run the app
 
@@ -42,7 +42,9 @@ This app does not have a package for MacOS on Intel processors at the moment (co
 4. Install dependencies with `pip install -r requirements.txt` (requires at least Python 3.10)
 5. Install Poppler with `python scripts/install_poppler.py`
 6. Run `pyside6-rcc resources.qrc -o resources.py`
-7. Run `python main.py`
+7. Download the OCR models with `curl -L https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.1/bdrc_ocr_models_1.0.zip`
+8. Extract the OCR models ZIP archive into a new `OCRModels` directory.
+9. Run `python main.py`
 
 ### OCR Models
 

@@ -173,5 +173,6 @@ cython_debug/
 main.build
 main.dist
 Models
+OCRModels
 download_models.py
 poppler*/
