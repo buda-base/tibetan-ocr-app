@@ -620,6 +620,13 @@ class AppView(QWidget):
                 
                 # Cache the result
                 self._poppler_path = poppler_path
+                
+                # Add bundled Poppler to PATH and DYLD_LIBRARY_PATH (run once)
+                os.environ['PATH'] = poppler_path + os.pathsep + os.environ.get('PATH', '')
+                if platform.system() == 'Darwin':
+                    poppler_root = os.path.dirname(os.path.dirname(poppler_path))
+                    lib_path = os.path.join(poppler_root, 'lib')
+                    os.environ['DYLD_LIBRARY_PATH'] = lib_path + os.pathsep + os.environ.get('DYLD_LIBRARY_PATH', '')
                 return poppler_path
             else:
                 QMessageBox.critical(self, "Error", f"Poppler binaries not found at expected location: {poppler_path}")

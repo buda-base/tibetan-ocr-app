@@ -295,9 +295,7 @@ jobs:
             
           # Make the Poppler binaries executable
           echo "Making Poppler binaries executable..."
-          chmod +x "macOSBuild/main.app/Contents/MacOS/poppler/bin/pdfinfo"
-          chmod +x "macOSBuild/main.app/Contents/MacOS/poppler/bin/pdftoppm"
-          chmod +x "macOSBuild/main.app/Contents/MacOS/poppler/bin/pdftotext"
+          find macOSBuild -type f -path "*/poppler/bin/*" -exec chmod +x {} +
 
           # Create lib directory and copy the library files to the correct location
           echo "Creating lib directory and copying Poppler library files..."
