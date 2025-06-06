@@ -251,6 +251,22 @@ header .container {
   margin-right: 10px;
 }
 
+.download-warning {
+  display: block;
+  margin: 38px 0 0;
+  color: #d35400;
+  font-size: 0.9em;
+  text-align: center;
+}
+
+.download-warning a {
+  color: #d35400;
+}
+
+.download-warning a:hover {
+  color: #a14100;
+}
+
 /* Features Section */
 .features {
   padding: 80px 0;
@@ -499,7 +515,7 @@ footer::after {
     text-align: center;
     gap: 20px;
   }
-  
+
   .feature-image {
     width: 100%;
     order: -1; /* This ensures the image always appears first/on top */
