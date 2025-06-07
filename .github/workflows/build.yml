@@ -182,7 +182,7 @@ jobs:
       - name: Download Poppler for macOS
         if: runner.os == 'macOS'
         run: |
-          brew install poppler
+          brew install poppler@23.12
           echo "Poppler installation directory: $(brew --prefix poppler)"
 
           # Create poppler directory structure
