@@ -374,5 +374,6 @@ class JsonLinesExporter(Exporter):
         return json_record
 
     def _write_to_file(self, f: TextIOBase, json_record: dict):
-        json_line = json.dumps(json_record, ensure_ascii=False, indent=1)
+        # Don't specify 'indent'. We don't want to pretty-print so that we're JSONLines-compatible.
+        json_line = json.dumps(json_record, ensure_ascii=False)
         f.write(json_line)
