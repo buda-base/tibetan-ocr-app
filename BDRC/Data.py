@@ -2,7 +2,7 @@ from uuid import UUID
 from enum import Enum
 import numpy.typing as npt
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, NamedTuple
 from PySide6.QtGui import QImage
 
 class OpStatus(Enum):
@@ -25,8 +25,20 @@ class CharsetEncoder(Enum):
 
 class ExportFormat(Enum):
     Text = 0
-    XML = 1
-    JSON = 2
+    PageXML = 1
+    JSONLines = 2
+
+class ExportFileMode(Enum):
+    FilePerPage = (0, "File per page")
+    OneBigFile = (1, "One big file")
+
+    label: str
+
+    def __new__(cls, ord: int, label: str):
+        value = object.__new__(cls)
+        value._value_ = ord
+        value.label = label
+        return value
 
 class Theme(Enum):
     Dark = 0
@@ -87,12 +99,16 @@ class Line:
     bbox: BBox
     center: Tuple[int, int]
 
-
 @dataclass
 class OCRLine:
     guid: UUID
     text: str
     encoding: Encoding
+
+@dataclass
+class TransformedContours:
+    plain_box: str
+    plain_lines: list[tuple[int, int, int, int] | str]
 
 @dataclass
 class LayoutData:
@@ -213,3 +229,13 @@ class AppSettings:
     language: Language
     encoding: Encoding
     theme: Theme
+
+@dataclass
+class ExportSettings:
+    file_mode: ExportFileMode
+    format: ExportFormat
+    encoding: Encoding
+    output_dir: str
+    output_file: str
+    before_page_text: str
+    after_page_text: str

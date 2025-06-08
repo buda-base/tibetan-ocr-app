@@ -1,6 +1,6 @@
 from BDRC.Widgets.Dialogs.import_images_dialog import ImportImagesDialog
 from BDRC.Widgets.Dialogs.pdf_import_dialog import PDFImportDialog
-from BDRC.Widgets.Dialogs.export_dir_dialog import ExportDirDialog
+from BDRC.Widgets.Dialogs.export_dir_or_file_dialog import ExportDirDialog
 from BDRC.Widgets.Dialogs.confirmation_dialog import ConfirmationDialog
 from BDRC.Widgets.Dialogs.notification_dialog import NotificationDialog
 from BDRC.Widgets.Dialogs.export_dialog import ExportDialog

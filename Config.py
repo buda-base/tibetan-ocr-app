@@ -1,15 +1,4 @@
-from BDRC.Data import (
-    Encoding,
-    ExportFormat,
-    Language,
-    Theme,
-    LineMode,
-    LineMerge, 
-    LineSorting,
-    TPSMode,
-    CharsetEncoder,
-    OCRArchitecture
-)
+from BDRC.Data import *
 
 APP_VERSION = (0, 2, 1)
 
@@ -57,9 +46,14 @@ THEMES = {
     "light": Theme.Light
 }
 
+EXPORT_FILE_MODES = {
+   "FilePerPage": ExportFileMode.FilePerPage,
+   "OneBigFile": ExportFileMode.OneBigFile
+}
+
 EXPORTERS = {
-    "xml": ExportFormat.XML,
-    "json": ExportFormat.JSON,
+    "xml": ExportFormat.PageXML,
+    "json": ExportFormat.JSONLines,
     "text": ExportFormat.Text
 }
 

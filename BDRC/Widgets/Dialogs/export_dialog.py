@@ -1,4 +1,4 @@
-from typing import List
+from typing import cast
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
@@ -7,29 +7,43 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QPushButton,
     QLineEdit,
-    QButtonGroup
+    QWidget
 )
 
-from BDRC.Data import OCRData, Encoding
-from BDRC.Widgets.Dialogs.helpers import build_encodings, build_exporter_settings
-from BDRC.Widgets.Dialogs.export_dir_dialog import ExportDirDialog
-from BDRC.Exporter import PageXMLExporter, JsonExporter, TextExporter
+from BDRC.Data import *
+from BDRC.MVVM.viewmodel import SettingsViewModel
+from BDRC.Widgets.Dialogs import NotificationDialog
+from BDRC.Widgets.Dialogs.helpers import build_encodings, build_export_formats, build_file_mode_settings
+from BDRC.Widgets.Dialogs.export_dir_or_file_dialog import ExportDirDialog, ExportFileDialog
+from BDRC.Exporter import Exporter
+from BDRC.Widgets.Utils.HLine import HLine
+
 
 class ExportDialog(QDialog):
     def __init__(
             self,
             ocr_data: List[OCRData],
-            active_encoding: Encoding,
+            settingsview_model: SettingsViewModel
         ):
         super().__init__()
         self.setObjectName("ExportDialog")
+
         self.ocr_data = ocr_data
-        self.encoding = active_encoding
-        self.output_dir = "/"
-        self.main_label = QLabel("Export OCR Data. Please select output directory:")
+
+        self._settingsview_model = settingsview_model
+        self.export_settings = self._settingsview_model.get_export_settings()
+
+        self.export_settings.output_dir = self.export_settings.output_dir
+        self.export_settings.output_file = self.export_settings.output_file
+
+        self.main_label = QLabel("Export OCR Data")
         self.main_label.setObjectName("OptionsLabel")
-        self.exporter_group, self.exporter_buttons = build_exporter_settings()
-        self.encodings_group, self.encoding_buttons = build_encodings(self.encoding)
+
+        self.hline1 = HLine()
+
+        self.file_mode_group, file_mode_buttons = build_file_mode_settings(self.export_settings.file_mode)
+        self.exporter_group, self.exporter_buttons = build_export_formats(self.export_settings.format)
+        self.encodings_group, self.encoding_buttons = build_encodings(self.export_settings.encoding)
 
         # build layout
         self.setWindowTitle("BDRC Export")
@@ -37,27 +51,120 @@ class ExportDialog(QDialog):
         self.setMinimumWidth(600)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
 
+        # Export Directory (for File Per Page mode)
+        self.export_dir_label = QLabel("Output directory")
+        self.export_dir_label.setObjectName("OptionsLabel")
+
         self.export_dir_layout = QHBoxLayout()
-        self.dir_edit = QLineEdit()
-        self.dir_edit.setObjectName("")
+        self.export_dir_edit = QLineEdit()
+        self.export_dir_edit.setObjectName("")
+        self.export_dir_edit.setText(self.export_settings.output_dir)
 
-        self.dir_select_btn = QPushButton("Select")
-        self.dir_select_btn.setObjectName("SmallDialogButton")
-        self.export_dir_layout.addWidget(self.dir_edit)
-        self.export_dir_layout.addWidget(self.dir_select_btn)
+        self.export_dir_select_btn = QPushButton("Select")
+        self.export_dir_select_btn.setObjectName("SmallDialogButton")
+        self.export_dir_layout.addWidget(self.export_dir_label)
+        self.export_dir_layout.addWidget(self.export_dir_edit)
+        self.export_dir_layout.addWidget(self.export_dir_select_btn)
 
+        # Export File (for One Big File mode)
+        self.export_file_label = QLabel("Output file")
+        self.export_file_label.setObjectName("OptionsLabel")
+
+        self.export_file_layout = QHBoxLayout()
+        self.export_file_edit = QLineEdit()
+        self.export_file_edit.setObjectName("")
+        self.export_file_edit.setText(self.export_settings.output_file)
+
+        self.export_file_select_btn = QPushButton("Select")
+        self.export_file_select_btn.setObjectName("SmallDialogButton")
+        self.export_file_layout.addWidget(self.export_file_label)
+        self.export_file_layout.addWidget(self.export_file_edit)
+        self.export_file_layout.addWidget(self.export_file_select_btn)
+
+        # File Mode
+        file_mode_layout = QHBoxLayout()
+        file_mode_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+
+        for btn in file_mode_buttons:
+            file_mode_layout.addWidget(btn)
+
+        # File Mode Explanations
+        def make_explanation(text: str):
+            expl = QLabel(text)
+            expl.setWordWrap(True)
+            expl.setObjectName("OptionsExplanation")
+            return expl
+
+        self.file_mode_expl = make_explanation("""
+          The <b>file per page</b> mode writes one output file per input page into the selected output directory.
+          The output file is named after the input. For example, given two image files <b>one.jpg</b> and <b>two.jpg</b>, the text
+          export would write two files <b>one.txt</b> and <b>two.txt</b> into the output directory.
+
+          <p>The <b>one big file</b> mode writes one <i>combined</i> output file containing <i>all</i> input pages.
+          For example, given two image files <b>one.jpg</b> and <b>two.jpg</b>, the text export would write one output
+          file that has the given file name and contains the OCR text from both images.
+        """)
+
+        # Encoding
         encoding_layout = QHBoxLayout()
         encoding_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        for encoding in self.encoding_buttons:
-            encoding_layout.addWidget(encoding)
+        for btn in self.encoding_buttons:
+            encoding_layout.addWidget(btn)
 
-        export_layout = QHBoxLayout()
-        export_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        # Export Formats
+        exporter_layout = QHBoxLayout()
+        exporter_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
         for btn in self.exporter_buttons:
-            export_layout.addWidget(btn)
+            exporter_layout.addWidget(btn)
 
+        self.hline2 = HLine()
+
+        # Before Page Text
+        self.before_page_text_label = QLabel("Before page text")
+        self.before_page_text_label.setObjectName("OptionsLabel")
+        self.before_page_text_edit = QLineEdit()
+        self.before_page_text_edit.setObjectName("")
+        self.before_page_text_edit.setText(self.export_settings.before_page_text)
+
+        self.before_page_h_layout = QHBoxLayout()
+        self.before_page_h_layout.addWidget(self.before_page_text_label)
+        self.before_page_h_layout.addWidget(self.before_page_text_edit)
+
+        # After Page Text
+        self.after_page_text_label = QLabel("After page text")
+        self.after_page_text_label.setObjectName("OptionsLabel")
+        self.after_page_text_edit = QLineEdit()
+        self.after_page_text_edit.setObjectName("")
+        self.after_page_text_edit.setText(self.export_settings.after_page_text)
+
+        self.after_page_h_layout = QHBoxLayout()
+        self.after_page_h_layout.addWidget(self.after_page_text_label)
+        self.after_page_h_layout.addWidget(self.after_page_text_edit)
+
+        # Make before and after labels the same width
+        beforeafter_label_w = 120
+        self.before_page_text_label.setMinimumWidth(beforeafter_label_w)
+        self.after_page_text_label.setMinimumWidth(beforeafter_label_w)
+
+        # Before & After Page Text Explanation
+        self.before_and_after_page_text_expl = make_explanation("""
+            <style>
+            ul b {
+              font-style: normal;
+            }
+            </style>
+
+            The <b>before and after page texts</b> will be added before/after every page in the output.<br>
+            Several variables are supported:
+            <ul>
+            <li><b>\\n</b> - Inserts a line break</li>
+            <li><b>{image}</b> - Inserts the page image's filename (without file extension, e.g. .jpg)</li>
+            </ul>
+        """)
+
+        # Export & Cancel buttons
         self.button_h_layout = QHBoxLayout()
         self.ok_btn = QPushButton("Export")
         self.ok_btn.setObjectName("DialogButton")
@@ -70,15 +177,42 @@ class ExportDialog(QDialog):
         # bind signals
         self.ok_btn.clicked.connect(self.export)
         self.cancel_btn.clicked.connect(self.cancel)
-        self.dir_select_btn.clicked.connect(self.select_export_dir)
+        self.export_dir_select_btn.clicked.connect(self.select_export_dir)
+        self.export_file_select_btn.clicked.connect(self.select_export_file)
+        self.file_mode_group.buttonClicked.connect(self.show_only_relevant_widgets)
 
         self.v_layout = QVBoxLayout()
         self.v_layout.addWidget(self.main_label)
-        self.v_layout.addLayout(self.export_dir_layout)
         self.v_layout.addLayout(encoding_layout)
-        self.v_layout.addLayout(export_layout)
+        self.v_layout.addLayout(exporter_layout)
+
+        self.v_layout.addWidget(self.hline1)
+
+        self.v_layout.addLayout(file_mode_layout)
+        self.v_layout.addWidget(self.file_mode_expl)
+
+        # Only for 'file per page' mode
+        self.v_layout.addLayout(self.export_dir_layout)
+        # Only for 'one big file' mode
+        self.v_layout.addLayout(self.export_file_layout)
+
+        self.v_layout.addWidget(self.hline2)
+
+        self.v_layout.addLayout(self.before_page_h_layout)
+        self.v_layout.addLayout(self.after_page_h_layout)
+        self.v_layout.addWidget(self.before_and_after_page_text_expl)
+
         self.v_layout.addLayout(self.button_h_layout)
         self.setLayout(self.v_layout)
+
+        self.widgets_for_file_mode = {
+            ExportFileMode.FilePerPage:
+                [self.export_dir_label, self.export_dir_edit, self.export_dir_select_btn],
+            ExportFileMode.OneBigFile:
+                [self.export_file_label, self.export_file_edit, self.export_file_select_btn],
+        }
+
+        self.show_only_relevant_widgets(None)
 
         self.setStyleSheet(
             """
@@ -92,28 +226,30 @@ class ExportDialog(QDialog):
         )
 
     def export(self):
-        if self.output_dir == "":
+        # Re-populate self.export_settings with settings from widgets
+        self.update_export_settings()
+
+        # Validation
+        if self.export_settings.file_mode == ExportFileMode.FilePerPage and self.export_settings.output_dir == "":
+            NotificationDialog("Invalid settings", "Output directory must be set when 'file per page' is selected").exec()
+            return
+        if self.export_settings.file_mode == ExportFileMode.OneBigFile and self.export_settings.output_file == "":
+            NotificationDialog("Invalid settings", "Output file must be set when 'one big file' is selected").exec()
             return
 
-        selected_exporter_id = self.exporter_group.checkedId()
-        selected_encoding_id = self.encodings_group.checkedId()
+        # Store new export settings to disk
+        self.save_export_settings()
 
         # create exporter based on selection
-        if selected_exporter_id == 0:
-            exporter = TextExporter(self.output_dir)
-        elif selected_exporter_id == 1:
-            exporter = PageXMLExporter(self.output_dir)
-        elif selected_exporter_id == 2:
-            exporter = JsonExporter(self.output_dir)
-        else:
-            exporter = TextExporter(self.output_dir)
+        exporter = Exporter.create_exporter(self.export_settings)
 
         # export all data
         print(f"Exporting OCR data for {len(self.ocr_data)} images")
-        for data in self.ocr_data:
-            exporter.export_lines(None, data.image_name, data.lines, data.ocr_lines)
+        exporter.export(self.ocr_data)
 
         self.accept()
+
+        NotificationDialog("Export complete", f"Export of {len(self.ocr_data)} pages successful").exec()
 
     def cancel(self):
         self.reject()
@@ -124,5 +260,33 @@ class ExportDialog(QDialog):
 
         if selected_dir == 1:
             _selected_dir = _dialog.selectedFiles()[0]
-            self.output_dir = _selected_dir
-            self.dir_edit.setText(self.output_dir)
+            self.export_dir_edit.setText(_selected_dir)
+
+    def select_export_file(self):
+        _dialog = ExportFileDialog()
+        selected_file = _dialog.exec()
+
+        if selected_file == 1:
+            _selected_file = _dialog.selectedFiles()[0]
+            self.export_file_edit.setText(_selected_file)
+
+    def update_export_settings(self):
+        self.export_settings = ExportSettings(
+            file_mode=ExportFileMode(self.file_mode_group.checkedId()),
+            format=ExportFormat(self.exporter_group.checkedId()),
+            encoding=Encoding(self.encodings_group.checkedId()),
+            output_dir=self.export_dir_edit.text(),
+            output_file=self.export_file_edit.text(),
+            before_page_text=self.before_page_text_edit.text(),
+            after_page_text=self.after_page_text_edit.text()
+        )
+
+    def save_export_settings(self):
+        self._settingsview_model.save_export_settings(self.export_settings)
+
+    def show_only_relevant_widgets(self, _):
+        active_file_mode = ExportFileMode(self.file_mode_group.checkedId())
+        for (file_mode, widgets) in self.widgets_for_file_mode.items():
+            show = file_mode == active_file_mode
+            for widget in widgets:
+                cast(QWidget, widget).setVisible(show)

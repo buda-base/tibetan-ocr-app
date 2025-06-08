@@ -1,38 +1,12 @@
 import os
 import json
-import pyewts
-import numpy.typing as npt
 
-from uuid import UUID
+import pyewts
+
 from glob import glob
-from typing import List, Dict
-from BDRC.Utils import create_dir, import_local_models
-from BDRC.Data import (
-    AppSettings,
-    Encoding,
-    LayoutDetectionConfig,
-    LineDetectionConfig,
-    OCRData,
-    Line,
-    LineMode,
-    OCRLine,
-    OCRLineUpdate,
-    OCRModelConfig,
-    OCRSettings,
-    OCRModel,
-    OpStatus
-)
-from Config import (
-    CHARSETENCODER,
-    ENCODINGS,
-    LANGUAGES,
-    LINE_MERGE,
-    LINE_MODES,
-    LINE_SORTING,
-    OCRARCHITECTURE,
-    THEMES,
-    TPS_MODE
-)
+from BDRC.Utils import create_dir, import_local_models, find_key
+from BDRC.Data import *
+from Config import *
 
 
 class SettingsModel:
@@ -40,7 +14,7 @@ class SettingsModel:
     def __init__(self, user_directory: str, execution_directory: str):
         self.user_directory = user_directory
         self.execution_directory = execution_directory
-        self.app_settings, self.ocr_settings = self.read_settings(self.user_directory)
+        self.app_settings, self.ocr_settings, self.export_settings = self.read_settings(self.user_directory)
         self.ocr_models = []
         self.DEFAULT_FONT = os.path.join(self.execution_directory, "Assets", "Fonts", "TibMachUni-1.901b.ttf")
 
@@ -83,7 +57,7 @@ class SettingsModel:
          # just deleting all tmp files on startup
 
         if os.path.isdir(self.tmp_dir):
-            tmp_files = glob(f"{self.tmp_dir}/*")
+            tmp_files = glob(os.path.join(self.tmp_dir, "*"))
 
             if len(tmp_files) > 0:
                 for file in tmp_files:
@@ -100,6 +74,9 @@ class SettingsModel:
 
     def update_app_settings(self, settings: AppSettings):
         self.app_settings = settings
+
+    def update_export_settings(self, settings: ExportSettings):
+        self.export_settings = settings
 
     def create_default_app_config(self, user_dir: str):
         settings = {
@@ -129,9 +106,23 @@ class SettingsModel:
         with open(ocr_settings_file, "w", encoding="utf-8") as f:
             json.dump(settings, f, ensure_ascii=False, indent=1)
 
-    def read_settings(self, user_dir: str):
+    def create_default_export_config(self):
+        default_settings = ExportSettings(
+            ExportFileMode.FilePerPage,
+            ExportFormat.Text,
+            Encoding.Unicode,
+            output_dir="/",
+            output_file="",
+            before_page_text="",
+            # Literal \n\n, not newlines yet
+            after_page_text="""\\n\\n"""
+        )
+        self.save_export_settings(default_settings)
+
+    def read_settings(self, user_dir: str) -> tuple[AppSettings, OCRSettings, ExportSettings]:
         app_settings_file = os.path.join(user_dir, "app_settings.json")
         ocr_settings_file = os.path.join(user_dir, "ocr_settings.json")
+        export_settings_file = os.path.join(user_dir, "export_settings.json")
 
         if not os.path.isfile(app_settings_file):
             self.create_default_app_config(user_dir)
@@ -139,8 +130,11 @@ class SettingsModel:
         if not os.path.isfile(ocr_settings_file):
             self.create_default_ocr_config(user_dir)
 
-        file = open(app_settings_file, encoding="utf-8")
-        app_json_settings = json.loads(file.read())
+        if not os.path.isfile(export_settings_file):
+            self.create_default_export_config()
+
+        with open(app_settings_file, encoding="utf-8") as file:
+            app_json_settings = json.loads(file.read())
 
         _model_path = app_json_settings["model_path"]
         _lang_code = app_json_settings["language"]
@@ -154,8 +148,9 @@ class SettingsModel:
             theme=THEMES[_theme]
         )
 
-        file = open(ocr_settings_file, encoding="utf-8")
-        ocr_json_settings = json.loads(file.read())
+        with open(ocr_settings_file, encoding="utf-8") as file:
+            ocr_json_settings = json.loads(file.read())
+
         _line_mode = ocr_json_settings["line_mode"]
         _line_merge = ocr_json_settings["line_merge"]
         _line_sorting = ocr_json_settings["line_sorting"]
@@ -170,15 +165,32 @@ class SettingsModel:
             line_mode=LINE_MODES[_line_mode],
             line_merge=LINE_MERGE[_line_merge],
             line_sorting=LINE_SORTING[_line_sorting],
-            dewarping=True if _dewarping == "yes" else False,
-            merge_lines=True if _merge_lines == "yes" else False,
+            dewarping=_dewarping == "yes",
+            merge_lines=_merge_lines == "yes",
             k_factor=float(_k_factor),
             bbox_tolerance=float(_bbox_tolerance),
             tps_mode=TPS_MODE[_tps],
             output_encoding=ENCODINGS[_out_encoding],
         )
 
-        return app_settings, ocr_settings
+        with open(export_settings_file, encoding="utf-8") as file:
+            export_json_settings = json.loads(file.read())
+
+        _export_file_mode = EXPORT_FILE_MODES[export_json_settings['file_mode']]
+        _export_encoding = ENCODINGS[export_json_settings['encoding']]
+        _export_format = EXPORTERS[export_json_settings['format']]
+
+        export_settings = ExportSettings(
+            file_mode=_export_file_mode,
+            format=_export_format,
+            encoding=_export_encoding,
+            output_dir=export_json_settings['output_dir'],
+            output_file=export_json_settings['output_file'],
+            before_page_text=export_json_settings['before_page_text'],
+            after_page_text=export_json_settings['after_page_text']
+        )
+
+        return app_settings, ocr_settings, export_settings
   
     def save_app_settings(self, settings: AppSettings):
         _model_path = settings.model_path
@@ -221,6 +233,24 @@ class SettingsModel:
         ocr_settings_file = os.path.join(self.user_directory, "ocr_settings.json")
         with open(ocr_settings_file, "w", encoding="utf-8") as f:
             json.dump(_settings, f, ensure_ascii=False, indent=1)
+
+    def save_export_settings(self, settings: ExportSettings):
+        _format = find_key(settings.format, EXPORTERS)
+        _encoding = find_key(settings.encoding, ENCODINGS)
+
+        settings = {
+            "file_mode": settings.file_mode.name,
+            "format": _format,
+            "encoding": _encoding,
+            "output_dir": settings.output_dir,
+            "output_file": settings.output_file,
+            "before_page_text": settings.before_page_text,
+            "after_page_text": settings.after_page_text
+        }
+
+        export_settings_file = os.path.join(self.user_directory, "export_settings.json")
+        with open(export_settings_file, "w", encoding="utf-8") as f:
+            json.dump(settings, f, ensure_ascii=False, indent=1)
 
     def read_line_model_config(self, target_dir: str) -> LineDetectionConfig:
         target_file = os.path.join(target_dir, "config.json")

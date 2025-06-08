@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 from BDRC.Data import OCRData, OCRModel, OCRSettings, OCRSample, OCResult, Encoding
 from BDRC.Inference import OCRPipeline
 from BDRC.Runner import OCRBatchRunner
-from BDRC.Widgets.Dialogs.helpers import build_encodings, build_binary_selection, build_exporter_settings
+from BDRC.Widgets.Dialogs.helpers import build_encodings, build_binary_selection, build_export_formats
 
 class BatchOCRDialog(QDialog):
     sign_ocr_result = Signal(OCResult)
@@ -64,7 +64,8 @@ class BatchOCRDialog(QDialog):
 
         # settings elements
         # Exports
-        self.exporter_group, self.exporter_buttons = build_exporter_settings()
+        # TODO: Not yet used
+        # self.exporter_group, self.exporter_buttons = build_exporter_settings()
         self.encodings_group, self.encoding_buttons = build_encodings(
             self.ocr_settings.output_encoding
         )
@@ -158,7 +159,7 @@ class BatchOCRDialog(QDialog):
         for btn in self.dewarp_buttons:
             dewarping_layout.addWidget(btn)
 
-        # merging lines
+        # merging ocr_lines
         merge_label = QLabel("Merge Lines")
         merge_label.setObjectName("OptionsLabel")
         merge_layout = QHBoxLayout()

@@ -1,4 +1,3 @@
-from uuid import UUID
 import os
 from typing import List, Tuple
 from PySide6.QtCore import Qt, Signal
@@ -133,30 +132,30 @@ class SettingsDialog(QDialog):
         # OCR Models Tab
         self.ocr_models_tab = QWidget()
 
-        self.data_table = QTableWidget()
-        self.data_table.setObjectName("ModelTable")
-        self.data_table.setColumnCount(5)
-        self.data_tabel_header = [
+        self.models_data_table = QTableWidget()
+        self.models_data_table.setObjectName("ModelTable")
+        self.models_data_table.setColumnCount(5)
+        self.models_data_table_header = [
             "Model",
             "Encoding",
             "Architecture",
             "Version",
             "Model file",
         ]
-        self.data_table.setAutoScroll(True)
-        self.data_table.horizontalHeader().setStretchLastSection(True)
+        self.models_data_table.setAutoScroll(True)
+        self.models_data_table.horizontalHeader().setStretchLastSection(True)
 
-        self.ocr_label = QLabel("Available OCR Models")
-        self.ocr_label.setObjectName("OptionsLabel")
+        models_data_table_label = QLabel("Available OCR Models")
+        models_data_table_label.setObjectName("OptionsLabel")
 
         h_layout = QHBoxLayout()
-        h_layout.addWidget(self.ocr_label)
+        h_layout.addWidget(models_data_table_label)
         h_layout.addWidget(self.import_models_btn)
 
-        v_layout = QVBoxLayout()
-        v_layout.addLayout(h_layout)
-        v_layout.addWidget(self.data_table)
-        self.ocr_models_tab.setLayout(v_layout)
+        ocr_models_tab_layout = QVBoxLayout()
+        ocr_models_tab_layout.addLayout(h_layout)
+        ocr_models_tab_layout.addWidget(self.models_data_table)
+        self.ocr_models_tab.setLayout(ocr_models_tab_layout)
 
         # OCR Settings Tab
         self.ocr_settings_tab = QWidget()
@@ -194,7 +193,7 @@ class SettingsDialog(QDialog):
         for btn in self.dewarp_buttons:
             dewarping_layout.addWidget(btn)
 
-        # merge lines
+        # merge ocr_lines
         merge_layout = QHBoxLayout()
         merge_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         merge_label = QLabel("Merge")
@@ -286,9 +285,9 @@ class SettingsDialog(QDialog):
         self.update_model_table(self.ocr_models)
 
     def update_model_table(self, ocr_models: List[OCRModel]):
-        self.data_table.clear()
-        self.data_table.setRowCount(len(ocr_models))
-        self.data_table.setHorizontalHeaderLabels(self.data_tabel_header)
+        self.models_data_table.clear()
+        self.models_data_table.setRowCount(len(ocr_models))
+        self.models_data_table.setHorizontalHeaderLabels(self.models_data_table_header)
 
         for i, model in enumerate(ocr_models):
             self.add_ocr_model(i, model)
@@ -296,23 +295,23 @@ class SettingsDialog(QDialog):
     def add_ocr_model(self, row_idx: int, ocr_model: OCRModel):
         model_name = QTableWidgetItem(ocr_model.name)
         model_name.setForeground(QColor("#ffffff"))
-        self.data_table.setItem(row_idx, 0, model_name)
+        self.models_data_table.setItem(row_idx, 0, model_name)
 
         model_encoding = QTableWidgetItem(ocr_model.config.encoder.name)
         model_encoding.setForeground(QColor("#ffffff"))
-        self.data_table.setItem(row_idx, 1, model_encoding)
+        self.models_data_table.setItem(row_idx, 1, model_encoding)
 
         model_arch = QTableWidgetItem(ocr_model.config.architecture.name)
         model_arch.setForeground(QColor("#ffffff"))
-        self.data_table.setItem(row_idx, 2, model_arch)
+        self.models_data_table.setItem(row_idx, 2, model_arch)
 
         model_version = QTableWidgetItem(str(ocr_model.config.version))
         model_version.setForeground(QColor("#ffffff"))
-        self.data_table.setItem(row_idx, 3, model_version)
+        self.models_data_table.setItem(row_idx, 3, model_version)
 
         model_file = QTableWidgetItem(ocr_model.path)
         model_file.setForeground(QColor("#ffffff"))
-        self.data_table.setItem(row_idx, 4, model_file)
+        self.models_data_table.setItem(row_idx, 4, model_file)
 
     def validate_bbox_tolerance_input(self):
         try:
@@ -337,8 +336,8 @@ class SettingsDialog(QDialog):
         self.reject()
 
     def clear_models(self):
-        self.data_table.clear()
-        self.data_table.setRowCount(0)
+        self.models_data_table.clear()
+        self.models_data_table.setRowCount(0)
 
     def handle_model_import(self):
         # Create a file dialog to select a directory

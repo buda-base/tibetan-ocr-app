@@ -1,12 +1,14 @@
 import abc
 import json
-from typing import List
+import os
+from io import TextIOBase
+from typing import TextIO
 import pyewts
 import logging
 import numpy.typing as npt
 from xml.dom import minidom
 import xml.etree.ElementTree as etree
-from BDRC.Data import BBox, Line, OCRLine, OCRData
+from BDRC.Data import BBox, OCRData, ExportSettings, ExportFormat, ExportFileMode, TransformedContours
 from BDRC.Utils import (
     get_utc_time,
     rotate_contour,
@@ -15,36 +17,101 @@ from BDRC.Utils import (
 
 
 
-class Exporter:
-    def __init__(self, output_dir: str):
-        self.output_dir = output_dir
+class Exporter(abc.ABC):
+    def __init__(self, settings: ExportSettings):
+        self.settings = settings
         self.converter = pyewts.pyewts()
         logging.info("Init Exporter")
 
+    @staticmethod
+    def create_exporter(settings: ExportSettings) -> 'Exporter':
+        format = settings.format
+        exporter: Exporter
 
-    @classmethod
-    def __subclasshook__(cls, subclass):
-        return (
-            hasattr(subclass, "export_lines")
-            and callable(subclass.export_lines)
-            or NotImplemented
-        )
+        if format == ExportFormat.Text:
+            exporter = TextExporter(settings)
+        elif format == ExportFormat.PageXML:
+            exporter = PageXMLExporter(settings)
+        elif format == ExportFormat.JSONLines:
+            exporter = JsonLinesExporter(settings)
+        else:
+            raise ValueError(f"Invalid export format: '{format}'")
+
+        return exporter
+
+    def export(
+        self,
+        data: list[OCRData]
+    ):
+        """ Exports the OCR data. Whether the output will be separate files per page,
+         or one big file, depends on `ExportSettings.file_mode`.
+        """
+        file_mode = self.settings.file_mode
+
+        if file_mode == ExportFileMode.FilePerPage:
+            for ocr_data in data:
+                self._export_page(None, ocr_data)
+
+        elif file_mode == ExportFileMode.OneBigFile:
+            self._export_one_big_file(data)
+
+        else:
+            raise ValueError(f"Invalid export file mode: '{file_mode}'")
 
     @abc.abstractmethod
-    def export_text(self, image_name: str, ocr_lines: List[OCRLine]):
-        """ Exports only the text ocr_lines """
+    def _export_one_big_file(
+        self,
+        data: list[OCRData],
+        optimize: bool = True,
+        bbox: bool = False,
+        angle: float = 0.0
+    ):
+        """ Exports text ocr_lines and line information of all pages into one big file """
         raise NotImplementedError
 
     @abc.abstractmethod
-    def export_lines(
+    def _export_page(
         self,
         image: npt.NDArray | None,
-        image_name: str,
-        lines: List[Line],
-        ocr_lines: List[OCRLine],
+        ocr_data: OCRData
     ):
-        """ Exports text ocr_lines and line informations """
+        """ Exports text ocr_lines and line information """
         raise NotImplementedError
+
+    def _transform_contours(
+            self,
+            image: npt.NDArray | None,
+            ocr_data: OCRData,
+            optimize: bool = True,
+            bbox: bool = False,
+            angle: float = 0.0
+    ) -> TransformedContours:
+        """ Transforms and optionally optimized the OCR data's contours. Mutates the `OCRLines` directly,
+        and returns the plain lines and plain BBox.
+        """
+
+        if image is not None and angle != 0:
+            x_center = image.shape[1] // 2
+            y_center = image.shape[0] // 2
+
+            for line in ocr_data.lines:
+                line.contour = rotate_contour(
+                    line.contour, (x_center, y_center), angle
+                )
+
+        if optimize:
+            for line in ocr_data.lines:
+                line.contour = optimize_countour(line.contour)
+
+        if bbox:
+            plain_lines = [self.get_bbox(x.bbox) for x in ocr_data.lines]
+        else:
+            plain_lines = [self.get_text_points(x.contour) for x in ocr_data.lines]
+
+        text_bbox = get_text_bbox(ocr_data.lines)
+        plain_box = self.get_bbox_points(text_bbox)
+
+        return TransformedContours(plain_box, plain_lines)
 
     @staticmethod
     def get_bbox(bbox: BBox) -> tuple[int, int, int, int]:
@@ -56,7 +123,7 @@ class Exporter:
         return x, y, w, h
 
     @staticmethod
-    def get_text_points(contour):
+    def get_text_points(contour: npt.NDArray) -> str:
         points = ""
         for box in contour:
             point = f"{box[0][0]},{box[0][1]} "
@@ -68,10 +135,27 @@ class Exporter:
         points = f"{bbox.x},{bbox.y} {bbox.x + bbox.w},{bbox.y} {bbox.x + bbox.w},{bbox.y + bbox.h} {bbox.x},{bbox.y + bbox.h}"
         return points
 
+    def _prepare_surrounding_texts(self, image_name: str) -> tuple[str, str]:
+        def resolve_vars(text: str):
+            # Turn \n into a real newline
+            text = text.replace("\\n", "\n")
+            text = text.replace("{image}", image_name)
+            return text
+
+        return (resolve_vars(self.settings.before_page_text), resolve_vars(self.settings.after_page_text))
+
+    def _surround_text(self, before_text: str, text: str, after_text: str) -> str:
+        """ The simplest way to handle before/after page texts is to simply concatenate them to the
+        OCR'd text. If a before/after page text is defined, a newline separates it from the OCR'd text.
+        """
+        before_text = f"{before_text}\n" if before_text else ""
+        after_text = f"\n{after_text}" if after_text else ""
+        return f"{before_text}{text}{after_text}"
+
 
 class PageXMLExporter(Exporter):
-    def __init__(self, output_dir: str) -> None:
-        super().__init__(output_dir)
+    def __init__(self, settings: ExportSettings) -> None:
+        super().__init__(settings)
         logging.info("Init XML Exporter")
 
     def get_text_line_block(self, coordinate, index: int, unicode_text: str):
@@ -95,12 +179,11 @@ class PageXMLExporter(Exporter):
 
     def build_xml_document(
         self,
-        image: npt.NDArray,
-        image_name: str,
-        text_bbox: str,
-        lines: List[str],
-        text_lines: List[OCRLine] | None,
-    ):
+        pages: list[tuple[npt.NDArray | None, OCRData]],
+        optimize: bool,
+        bbox: bool,
+        angle: float
+    ) -> str:
         root = etree.Element("PcGts")
         root.attrib["xmlns"] = (
             "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15"
@@ -116,8 +199,26 @@ class PageXMLExporter(Exporter):
         created = etree.SubElement(metadata, "Created")
         created.text = get_utc_time()
 
+        for (image, ocr_data) in pages:
+            transformed_contours = self._transform_contours(image, ocr_data, optimize, bbox, angle)
+            self._build_xml_page(root, image, ocr_data, transformed_contours)
+
+        parsed_xml = minidom.parseString(etree.tostring(root))
+        parsed_xml = parsed_xml.toprettyxml()
+
+        return parsed_xml
+
+    def _build_xml_page(
+        self,
+        root: etree.Element,
+        image: npt.NDArray,
+        ocr_data: OCRData,
+        transformed_contours: TransformedContours
+    ) -> None:
+        before_text, after_text = self._prepare_surrounding_texts(ocr_data.image_name)
+
         page = etree.SubElement(root, "Page")
-        page.attrib["imageFilename"] = image_name
+        page.attrib["imageFilename"] = ocr_data.image_name
         page.attrib["imageWidth"] = f"{image.shape[1]}"
         page.attrib["imageHeight"] = f"{image.shape[0]}"
 
@@ -136,151 +237,136 @@ class PageXMLExporter(Exporter):
         text_region.attrib["custom"] = "readingOrder {index:0;}"
 
         text_region_coords = etree.SubElement(text_region, "Coords")
-        text_region_coords.attrib["points"] = text_bbox
+        text_region_coords.attrib["points"] = transformed_contours.plain_box
 
-        print(f"Exporting XML Lines: {len(text_lines)}")
-        print(f"Exporting Line Info: {len(lines)}")
+        print(f"Exporting XML Lines: {len(ocr_data.ocr_lines)}")
+        print(f"Exporting Line Info: {len(transformed_contours.plain_lines)}")
 
-        for l_idx, line in enumerate(lines):
-            if text_lines is not None and len(text_lines) > 0:
-                text_region.append(
-                    self.get_text_line_block(
-                        coordinate=line, index=l_idx, unicode_text=text_lines[l_idx].text
-                    )
-                )
+        for l_idx, line in enumerate(transformed_contours.plain_lines):
+            if ocr_data.ocr_lines:
+                unicode_text = self._surround_text(before_text, ocr_data.ocr_lines[l_idx].text, after_text)
             else:
-                text_region.append(
-                    self.get_text_line_block(
-                        coordinate=line, index=l_idx, unicode_text=""
-                    )
-                )
+                unicode_text = ""
 
-        parsed_xml = minidom.parseString(etree.tostring(root))
-        parsed_xml = parsed_xml.toprettyxml()
+            text_region.append(self.get_text_line_block(coordinate=line, index=l_idx, unicode_text=unicode_text))
 
-        return parsed_xml
-
-    def export_lines(
-        self,
-        image: npt.NDArray | None,
-        image_name: str,
-        lines: List[Line],
-        ocr_lines: List[OCRLine],
-        optimize: bool = True,
-        bbox: bool = False,
-        angle: float = 0.0
+    def _export_one_big_file(
+            self,
+            data: list[OCRData],
+            optimize: bool = True,
+            bbox: bool = False,
+            angle: float = 0.0
     ):
-
-        if angle != abs(0):
-            x_center = image.shape[1] // 2
-            y_center = image.shape[0] // 2
-
-            for line in lines:
-                line.contour = rotate_contour(
-                    line.contour,
-                    (x_center, y_center),
-                    angle
-                )
-
-        if optimize:
-            for line in lines:
-                line.contour = optimize_countour(line.contour)
-
-        if bbox:
-            plain_lines = [self.get_bbox(x.bbox) for x in lines]
-        else:
-            plain_lines = [self.get_text_points(x.contour) for x in lines]
-
-        text_bbox = get_text_bbox(lines)
-        plain_box = self.get_bbox_points(text_bbox)
-
-        xml_doc = self.build_xml_document(
-            image,
-            image_name,
-            text_bbox=plain_box,
-            lines=plain_lines,
-            text_lines=ocr_lines,
-        )
-
-        out_file = f"{self.output_dir}/{image_name}.xml"
+        out_file = self.settings.output_file
+        xml_doc = self.build_xml_document([(None, ocr_data) for ocr_data in data], optimize, bbox, angle)
 
         with open(out_file, "w", encoding="UTF-8") as f:
             f.write(xml_doc)
 
-class TextExporter(Exporter):
-    def __init__(self, output_dir: str) -> None:
-        super().__init__(output_dir)
-        logging.info("Init Text Exporter")
-
-    def export_lines(
-            self,
-            image: npt.NDArray | None,
-            image_name: str,
-            lines: List[Line],
-            ocr_lines: list[OCRLine],
-            optimize: bool = True,
-            bbox: bool = False,
-            angle: float = 0.0):
-
-        out_file = f"{self.output_dir}/{image_name}.txt"
-
-        with open(out_file, "w", encoding="UTF-8") as f:
-            for _line in ocr_lines:
-                f.write(f"{_line.text}\n")
-
-    def export_text(self, image_name: str, ocr_lines: List[OCRLine]):
-        out_file = f"{self.output_dir}/{image_name}.txt"
-
-        with open(out_file, "w", encoding="UTF-8") as f:
-            for ocr_line in ocr_lines:
-                f.write(f"{ocr_line.text}\n")
-
-
-class JsonExporter(Exporter):
-    def __init__(self, output_dir: str) -> None:
-        super().__init__(output_dir)
-        logging.info("Init JSON Exporter")
-
-    def export_lines(
+    def _export_page(
         self,
         image: npt.NDArray | None,
-        image_name: str,
-        lines: List[Line],
-        ocr_lines: list[OCRLine],
+        ocr_data: OCRData,
         optimize: bool = True,
         bbox: bool = False,
         angle: float = 0.0
     ):
+        out_file = f"{self.settings.output_dir}/{ocr_data.image_name}.xml"
+        xml_doc = self.build_xml_document([(image, ocr_data)], optimize, bbox, angle)
 
-        if angle != abs(0):
-            x_center = image.shape[1] // 2
-            y_center = image.shape[0] // 2
+        with open(out_file, "w", encoding="UTF-8") as f:
+            f.write(xml_doc)
 
-            for line in lines:
-                line.contour = rotate_contour(
-                    line.contour, (x_center, y_center), angle
-                )
 
-        if optimize:
-            for line in lines:
-                line.contour = optimize_countour(line.contour)
+class TextExporter(Exporter):
+    def __init__(self, settings: ExportSettings) -> None:
+        super().__init__(settings)
+        logging.info("Init Text Exporter")
 
-        if bbox:
-            plain_lines = [self.get_bbox(x.bbox) for x in lines]
-        else:
-            plain_lines = [self.get_text_points(x.contour) for x in lines]
+    def _export_one_big_file(
+        self,
+        data: list[OCRData],
+        optimize: bool = True,
+        bbox: bool = False,
+        angle: float = 0.0
+    ):
+        out_file = self.settings.output_file
 
-        text_bbox = get_text_bbox(lines)
-        plain_box = self.get_bbox_points(text_bbox)
-        _text_lines = [x.text for x in ocr_lines]
+        with open(out_file, "w", encoding="UTF-8") as f:
+            for ocr_data in data:
+                before_text, after_text = self._prepare_surrounding_texts(ocr_data.image_name)
+                self._write_to_file(f, ocr_data, before_text, after_text)
+
+    def _export_page(
+            self,
+            image: npt.NDArray | None,
+            ocr_data: OCRData,
+            optimize: bool = True,
+            bbox: bool = False,
+            angle: float = 0.0
+    ):
+        out_file = os.path.join(self.settings.output_dir, f"{ocr_data.image_name}.txt")
+        before_text, after_text = self._prepare_surrounding_texts(ocr_data.image_name)
+
+        with open(out_file, "w", encoding="UTF-8") as f:
+            self._write_to_file(f, ocr_data, before_text, after_text)
+
+    def _write_to_file(self, f: TextIO, ocr_data: OCRData, before_text: str, after_text: str):
+        for ocr_line in ocr_data.ocr_lines:
+            f.write(self._surround_text(before_text, ocr_line.text, after_text))
+            f.write("\n")
+
+
+class JsonLinesExporter(Exporter):
+    def __init__(self, settings: ExportSettings) -> None:
+        super().__init__(settings)
+        logging.info("Init JSONLines Exporter")
+
+    def _export_one_big_file(
+        self,
+        data: list[OCRData],
+        optimize: bool = True,
+        bbox: bool = False,
+        angle: float = 0.0
+    ):
+        out_file = self.settings.output_file
+
+        with open(out_file, "w", encoding="UTF-8") as f:
+            for ocr_data in data:
+                json_record = self._to_json_record(None, ocr_data, optimize, bbox, angle)
+                self._write_to_file(f, json_record)
+
+
+    def _export_page(
+        self,
+        image: npt.NDArray | None,
+        ocr_data: OCRData,
+        optimize: bool = True,
+        bbox: bool = False,
+        angle: float = 0.0
+    ):
+        out_file = f"{self.settings.output_dir}/{ocr_data.image_name}.jsonl"
+
+        json_record = self._to_json_record(image, ocr_data, optimize, bbox, angle)
+
+        with open(out_file, "w", encoding="UTF-8") as f:
+            self._write_to_file(f, json_record)
+
+    def _to_json_record(self, image: npt.NDArray | None, ocr_data: OCRData, optimize: bool, bbox: bool, angle: float) -> dict:
+        before_text, after_text = self._prepare_surrounding_texts(ocr_data.image_name)
+        transformed_contours = self._transform_contours(image, ocr_data, optimize, bbox, angle)
+
+        _text_lines = [self._surround_text(before_text, l.text, after_text) for l in ocr_data.ocr_lines]
+
         json_record = {
-            "image": image_name,
-            "textbox": plain_box,
-            "lines": plain_lines,
+            "image": ocr_data.image_name,
+            "textbox": transformed_contours.plain_box,
+            "lines": transformed_contours.plain_lines,
             "text": _text_lines,
         }
 
-        out_file = f"{self.output_dir}/{image_name}.jsonl"
+        return json_record
 
-        with open(out_file, "w", encoding="UTF-8") as f:
-            json.dump(json_record, f, ensure_ascii=False, indent=1)
+    def _write_to_file(self, f: TextIOBase, json_record: dict):
+        json_line = json.dumps(json_record, ensure_ascii=False, indent=1)
+        f.write(json_line)

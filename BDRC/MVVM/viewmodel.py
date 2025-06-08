@@ -3,7 +3,7 @@ import numpy.typing as npt
 from typing import List, Dict
 from PySide6.QtCore import QObject, Signal
 from BDRC.MVVM.model import OCRDataModel, SettingsModel
-from BDRC.Data import OCRData, Line, OCRLine, OCRLineUpdate, OCRModel, AppSettings, OCRSettings
+from BDRC.Data import OCRData, Line, OCRLine, OCRLineUpdate, OCRModel, AppSettings, OCRSettings, ExportSettings
 
 
 class SettingsViewModel(QObject):
@@ -31,7 +31,7 @@ class SettingsViewModel(QObject):
     def get_ocr_models(self):
         return self._model.ocr_models
 
-    def  get_current_ocr_model(self) -> OCRModel | None:
+    def get_current_ocr_model(self) -> OCRModel | None:
         if len(self._model.ocr_models) > 0:
             return self._model.ocr_models[0]
         else:
@@ -42,6 +42,9 @@ class SettingsViewModel(QObject):
 
     def get_app_settings(self) -> AppSettings:
         return self._model.app_settings
+
+    def get_export_settings(self) -> ExportSettings:
+        return self._model.export_settings
 
     def update_ocr_settings(self, settings: OCRSettings):
         self._model.update_ocr_settings(settings)
@@ -64,6 +67,9 @@ class SettingsViewModel(QObject):
 
     def save_ocr_settings(self, settings: OCRSettings):
         self._model.save_ocr_settings(settings)
+
+    def save_export_settings(self, settings: ExportSettings):
+        self._model.save_export_settings(settings)
 
 
 class DataViewModel(QObject):

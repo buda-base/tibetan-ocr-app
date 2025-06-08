@@ -14,7 +14,7 @@ from uuid import uuid1
 from pathlib import Path
 from datetime import datetime
 from tps import ThinPlateSpline
-from typing import List, Tuple, Optional, Sequence
+from typing import List, Tuple, Optional, Sequence, Any
 
 from BDRC.Data import OCRModelConfig, Platform, ScreenData, BBox, Line, \
     OCRModel, OCRData
@@ -74,6 +74,9 @@ def get_utc_time():
     utc_time = utc_time.strftime('%Y-%m-%dT%H:%M:%S')
 
     return utc_time
+
+def find_key(value: Any, mapping: dict[str, Any]):
+    return next(k for k, v in mapping.items() if v == value)
 
 def get_execution_providers() -> List[str]:
     available_providers = ort.get_available_providers()
@@ -597,7 +600,7 @@ def build_line_data(contour: np.array, optimize: bool = True) -> Line:
 
 def get_line_threshold(line_prediction: npt.NDArray, slice_width: int = 20):
     """
-    This function generates n slices (of n = steps) width the width of slice_width across the bbox of the detected lines.
+    This function generates n slices (of n = steps) width the width of slice_width across the bbox of the detected ocr_lines.
     The slice with the max. number of contained contours is taken to be the canditate to calculate the bbox center of each contour and
     take the median distance between each bbox center as estimated line cut-off threshold to sort each line segment across the horizontal
 

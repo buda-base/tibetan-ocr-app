@@ -392,8 +392,7 @@ class AppView(QWidget):
             info_box.exec()
 
         else:
-            _ocr_settings = self._settingsview_model.get_ocr_settings()
-            dialog = ExportDialog(list(_ocr_data.values()), _ocr_settings.output_encoding)
+            dialog = ExportDialog(list(_ocr_data.values()), self._settingsview_model)
             dialog.setStyleSheet(DARK)
             dialog.exec()
 

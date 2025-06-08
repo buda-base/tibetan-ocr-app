@@ -229,7 +229,6 @@ DARK = """
 
     QLabel#OptionsExplanation {
         color: #CCCCCC;
-        font-size: 11px;
         font-style: italic;
         width: 100%;
     }

@@ -1,28 +1,25 @@
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QButtonGroup, QRadioButton
 
-from BDRC.Data import LineMode, Language, Encoding
+from BDRC.Data import *
 
-# Line Models
+# Line Modes
 def build_line_mode(active_mode: LineMode):
     line_mode_group = QButtonGroup()
-    line_mode_group.setExclusive(True)
     line_mode_group.setObjectName("OptionsRadio")
 
-    line_btn = QRadioButton("Line")
-    line_btn.setObjectName("OptionsRadio")
-    line_btn.setChecked(active_mode == LineMode.Line)
-    
-    layout_btn = QRadioButton("Layout")
-    layout_btn.setObjectName("OptionsRadio")
-    layout_btn.setChecked(active_mode == LineMode.Layout)
+    buttons = []
 
-    line_mode_group.addButton(line_btn)
-    line_mode_group.addButton(layout_btn)
-    line_mode_group.setId(line_btn, LineMode.Line.value)
-    line_mode_group.setId(layout_btn, LineMode.Layout.value)
+    for line_mode in LineMode:
+        btn = QRadioButton(line_mode.name)
+        btn.setObjectName("OptionsRadio")
+        btn.setChecked(active_mode == line_mode)
 
-    return line_mode_group, [line_btn, layout_btn]
+        line_mode_group.addButton(btn)
+        line_mode_group.setId(btn, line_mode.value)
+
+        buttons.append(btn)
+
+    return line_mode_group, buttons
 
 # Languages
 def build_languages(active_language: Language):
@@ -40,19 +37,41 @@ def build_languages(active_language: Language):
     return language_group, [tibetan_btn]
 
 # Export Formats
-def build_exporter_settings():
+def build_export_formats(active_export_format: ExportFormat):
     exporter_group = QButtonGroup()
-    exporter_group.setExclusive(False)
     exporter_group.setObjectName("OptionsRadio")
 
-    txt_btn = QRadioButton("TXT")
-    txt_btn.setObjectName("OptionsRadio")
-    txt_btn.setChecked(True)
+    buttons = []
+    for format in ExportFormat:
+        btn = QRadioButton(format.name)
+        btn.setObjectName("OptionsRadio")
+        btn.setChecked(format == active_export_format)
 
-    exporter_group.addButton(txt_btn)
-    exporter_group.setId(txt_btn, 0)
+        exporter_group.addButton(btn)
+        exporter_group.setId(btn, format.value)
 
-    return exporter_group, [txt_btn]
+        buttons.append(btn)
+
+    return exporter_group, buttons
+
+# File Modes
+def build_file_mode_settings(active_file_mode: ExportFileMode):
+    file_mode_group = QButtonGroup()
+    file_mode_group.setObjectName("OptionsRadio")
+
+    def make_button(file_mode: ExportFileMode):
+        btn = QRadioButton(file_mode.label)
+        btn.setObjectName("OptionsRadio")
+        btn.setChecked(file_mode == active_file_mode)
+
+        file_mode_group.addButton(btn)
+        file_mode_group.setId(btn, file_mode.value)
+
+        return btn
+
+    buttons = (make_button(ExportFileMode.FilePerPage), make_button(ExportFileMode.OneBigFile))
+
+    return file_mode_group, buttons
 
 # Encodings
 def build_encodings(active_encoding: Encoding):
@@ -60,25 +79,23 @@ def build_encodings(active_encoding: Encoding):
     encoding_group.setExclusive(True)
     encoding_group.setObjectName("OptionsRadio")
 
-    unicode_btn = QRadioButton("Unicode")
-    unicode_btn.setObjectName("OptionsRadio")
-    unicode_btn.setChecked(active_encoding == Encoding.Unicode)
+    buttons = []
 
-    wylie_btn = QRadioButton("Wylie")
-    wylie_btn.setObjectName("OptionsRadio")
-    wylie_btn.setChecked(active_encoding == Encoding.Wylie)
+    for encoding in Encoding:
+        btn = QRadioButton(encoding.name)
+        btn.setObjectName("OptionsRadio")
+        btn.setChecked(encoding == active_encoding)
 
-    encoding_group.addButton(unicode_btn)
-    encoding_group.addButton(wylie_btn)
-    encoding_group.setId(unicode_btn, Encoding.Unicode.value)
-    encoding_group.setId(wylie_btn, Encoding.Wylie.value)
+        encoding_group.addButton(btn)
+        encoding_group.setId(btn, encoding.value)
 
-    return encoding_group, [unicode_btn, wylie_btn]
+        buttons.append(btn)
+
+    return encoding_group, buttons
 
 # Dewarping
 def build_binary_selection(current_setting: bool):
     group = QButtonGroup()
-    group.setExclusive(True)
     group.setObjectName("OptionsRadio")
 
     on_btn = QRadioButton("On")
