@@ -6,8 +6,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QPushButton,
-    QLineEdit,
-    QWidget
+    QLineEdit
 )
 
 from BDRC.Data import *
@@ -121,6 +120,9 @@ class ExportDialog(QDialog):
 
         self.hline2 = HLine()
 
+        self.beforeafter_label = QLabel("Before/After page texts (only for Text exports)")
+        self.beforeafter_label.setObjectName("OptionsLabel")
+
         # Before Page Text
         self.before_page_text_label = QLabel("Before page text")
         self.before_page_text_label.setObjectName("OptionsLabel")
@@ -198,6 +200,7 @@ class ExportDialog(QDialog):
 
         self.v_layout.addWidget(self.hline2)
 
+        self.v_layout.addWidget(self.beforeafter_label)
         self.v_layout.addLayout(self.before_page_h_layout)
         self.v_layout.addLayout(self.after_page_h_layout)
         self.v_layout.addWidget(self.before_and_after_page_text_expl)

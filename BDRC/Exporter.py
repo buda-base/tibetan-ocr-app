@@ -211,16 +211,14 @@ class PageXMLExporter(Exporter):
     def _build_xml_page(
         self,
         root: etree.Element,
-        image: npt.NDArray,
+        image: npt.NDArray | None,
         ocr_data: OCRData,
         transformed_contours: TransformedContours
     ) -> None:
-        before_text, after_text = self._prepare_surrounding_texts(ocr_data.image_name)
-
         page = etree.SubElement(root, "Page")
         page.attrib["imageFilename"] = ocr_data.image_name
-        page.attrib["imageWidth"] = f"{image.shape[1]}"
-        page.attrib["imageHeight"] = f"{image.shape[0]}"
+        page.attrib["imageWidth"] = f"{image.shape[1]}" if image else ""
+        page.attrib["imageHeight"] = f"{image.shape[0]}" if image else ""
 
         reading_order = etree.SubElement(page, "ReadingOrder")
         ordered_group = etree.SubElement(reading_order, "OrderedGroup")
@@ -243,10 +241,7 @@ class PageXMLExporter(Exporter):
         print(f"Exporting Line Info: {len(transformed_contours.plain_lines)}")
 
         for l_idx, line in enumerate(transformed_contours.plain_lines):
-            if ocr_data.ocr_lines:
-                unicode_text = self._surround_text(before_text, ocr_data.ocr_lines[l_idx].text, after_text)
-            else:
-                unicode_text = ""
+            unicode_text = ocr_data.ocr_lines[l_idx].text if ocr_data.ocr_lines else ""
 
             text_region.append(self.get_text_line_block(coordinate=line, index=l_idx, unicode_text=unicode_text))
 
@@ -295,7 +290,7 @@ class TextExporter(Exporter):
         with open(out_file, "w", encoding="UTF-8") as f:
             for ocr_data in data:
                 before_text, after_text = self._prepare_surrounding_texts(ocr_data.image_name)
-                self._write_to_file(f, ocr_data, before_text, after_text)
+                self._write_page_to_file(f, ocr_data, before_text, after_text)
 
     def _export_page(
             self,
@@ -309,12 +304,20 @@ class TextExporter(Exporter):
         before_text, after_text = self._prepare_surrounding_texts(ocr_data.image_name)
 
         with open(out_file, "w", encoding="UTF-8") as f:
-            self._write_to_file(f, ocr_data, before_text, after_text)
+            self._write_page_to_file(f, ocr_data, before_text, after_text)
 
-    def _write_to_file(self, f: TextIO, ocr_data: OCRData, before_text: str, after_text: str):
-        for ocr_line in ocr_data.ocr_lines:
-            f.write(self._surround_text(before_text, ocr_line.text, after_text))
+    def _write_page_to_file(self, f: TextIO, ocr_data: OCRData, before_text: str, after_text: str):
+        if before_text:
+            f.write(before_text)
             f.write("\n")
+
+        for ocr_line in ocr_data.ocr_lines:
+            f.write(ocr_line.text)
+            f.write("\n")
+
+        if after_text:
+            f.write("\n")
+            f.write(after_text)
 
 
 class JsonLinesExporter(Exporter):
@@ -332,9 +335,13 @@ class JsonLinesExporter(Exporter):
         out_file = self.settings.output_file
 
         with open(out_file, "w", encoding="UTF-8") as f:
-            for ocr_data in data:
-                json_record = self._to_json_record(None, ocr_data, optimize, bbox, angle)
-                self._write_to_file(f, json_record)
+            if data:
+                for ocr_data in data:
+                    json_record = self._to_json_record(None, ocr_data, optimize, bbox, angle)
+                    self._write_to_file(f, json_record)
+
+                    if ocr_data is not data[-1]:
+                        f.write("\n")
 
 
     def _export_page(
@@ -353,10 +360,9 @@ class JsonLinesExporter(Exporter):
             self._write_to_file(f, json_record)
 
     def _to_json_record(self, image: npt.NDArray | None, ocr_data: OCRData, optimize: bool, bbox: bool, angle: float) -> dict:
-        before_text, after_text = self._prepare_surrounding_texts(ocr_data.image_name)
         transformed_contours = self._transform_contours(image, ocr_data, optimize, bbox, angle)
 
-        _text_lines = [self._surround_text(before_text, l.text, after_text) for l in ocr_data.ocr_lines]
+        _text_lines = [l.text for l in ocr_data.ocr_lines]
 
         json_record = {
             "image": ocr_data.image_name,
