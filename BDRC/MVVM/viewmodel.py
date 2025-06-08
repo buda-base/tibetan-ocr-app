@@ -9,6 +9,8 @@ from BDRC.Data import OCRData, Line, OCRLine, OCRLineUpdate, OCRModel, AppSettin
 class SettingsViewModel(QObject):
     s_app_settings_changed = Signal(AppSettings)
     s_ocr_settings_changed = Signal(OCRSettings)
+    s_export_settings_changed = Signal(ExportSettings)
+
     s_ocr_models_changed = Signal()
     s_ocr_model_changed = Signal(OCRModel)
 
@@ -53,6 +55,10 @@ class SettingsViewModel(QObject):
     def update_app_settings(self, settings: AppSettings):
         self._model.update_app_settings(settings)
         self.s_app_settings_changed.emit(settings)
+
+    def update_export_settings(self, settings: ExportSettings):
+        self._model.update_export_settings(settings)
+        self.s_export_settings_changed.emit(settings)
 
     def update_ocr_models(self, ocr_models: List[OCRModel]):
         if len(ocr_models) > 0:

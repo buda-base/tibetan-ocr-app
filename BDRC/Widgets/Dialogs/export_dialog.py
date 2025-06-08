@@ -1,4 +1,3 @@
-from typing import cast
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
@@ -274,15 +273,15 @@ class ExportDialog(QDialog):
             self.export_file_edit.setText(_selected_file)
 
     def update_export_settings(self):
-        self.export_settings = ExportSettings(
-            file_mode=ExportFileMode(self.file_mode_group.checkedId()),
-            format=ExportFormat(self.exporter_group.checkedId()),
-            encoding=Encoding(self.encodings_group.checkedId()),
-            output_dir=self.export_dir_edit.text(),
-            output_file=self.export_file_edit.text(),
-            before_page_text=self.before_page_text_edit.text(),
-            after_page_text=self.after_page_text_edit.text()
-        )
+        self.export_settings.file_mode = ExportFileMode(self.file_mode_group.checkedId())
+        self.export_settings.format = ExportFormat(self.exporter_group.checkedId())
+        self.export_settings.encoding = Encoding(self.encodings_group.checkedId())
+        self.export_settings.output_dir = self.export_dir_edit.text()
+        self.export_settings.output_file = self.export_file_edit.text()
+        self.export_settings.before_page_text = self.before_page_text_edit.text()
+        self.export_settings.after_page_text = self.after_page_text_edit.text()
+
+        self._settingsview_model.update_export_settings(self.export_settings)
 
     def save_export_settings(self):
         self._settingsview_model.save_export_settings(self.export_settings)
@@ -292,4 +291,4 @@ class ExportDialog(QDialog):
         for (file_mode, widgets) in self.widgets_for_file_mode.items():
             show = file_mode == active_file_mode
             for widget in widgets:
-                cast(QWidget, widget).setVisible(show)
+                widget.setVisible(show)
