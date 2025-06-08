@@ -52,7 +52,7 @@ class Exporter(abc.ABC):
             for ocr_data in data:
                 self._export_page(None, ocr_data)
 
-        elif file_mode == ExportFileMode.OneBigFile:
+        elif file_mode == ExportFileMode.OneCombinedFile:
             self._export_one_big_file(data)
 
         else:

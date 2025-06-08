@@ -69,7 +69,7 @@ def build_file_mode_settings(active_file_mode: ExportFileMode):
 
         return btn
 
-    buttons = (make_button(ExportFileMode.FilePerPage), make_button(ExportFileMode.OneBigFile))
+    buttons = (make_button(ExportFileMode.FilePerPage), make_button(ExportFileMode.OneCombinedFile))
 
     return file_mode_group, buttons
 

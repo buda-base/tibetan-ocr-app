@@ -47,8 +47,8 @@ THEMES = {
 }
 
 EXPORT_FILE_MODES = {
-   "FilePerPage": ExportFileMode.FilePerPage,
-   "OneBigFile": ExportFileMode.OneBigFile
+   "file_per_page": ExportFileMode.FilePerPage,
+   "one_combined_file": ExportFileMode.OneCombinedFile
 }
 
 EXPORTERS = {

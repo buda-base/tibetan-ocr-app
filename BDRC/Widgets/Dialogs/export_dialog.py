@@ -208,7 +208,7 @@ class ExportDialog(QDialog):
         self.widgets_for_file_mode = {
             ExportFileMode.FilePerPage:
                 [self.export_dir_label, self.export_dir_edit, self.export_dir_select_btn],
-            ExportFileMode.OneBigFile:
+            ExportFileMode.OneCombinedFile:
                 [self.export_file_label, self.export_file_edit, self.export_file_select_btn],
         }
 
@@ -233,7 +233,7 @@ class ExportDialog(QDialog):
         if self.export_settings.file_mode == ExportFileMode.FilePerPage and self.export_settings.output_dir == "":
             NotificationDialog("Invalid settings", "Output directory must be set when 'file per page' is selected").exec()
             return
-        if self.export_settings.file_mode == ExportFileMode.OneBigFile and self.export_settings.output_file == "":
+        if self.export_settings.file_mode == ExportFileMode.OneCombinedFile and self.export_settings.output_file == "":
             NotificationDialog("Invalid settings", "Output file must be set when 'one big file' is selected").exec()
             return
 

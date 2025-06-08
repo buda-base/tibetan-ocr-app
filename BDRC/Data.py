@@ -30,7 +30,7 @@ class ExportFormat(Enum):
 
 class ExportFileMode(Enum):
     FilePerPage = (0, "File per page")
-    OneBigFile = (1, "One big file")
+    OneCombinedFile = (1, "One combined file")
 
     label: str
 

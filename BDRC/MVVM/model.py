@@ -235,11 +235,12 @@ class SettingsModel:
             json.dump(_settings, f, ensure_ascii=False, indent=1)
 
     def save_export_settings(self, settings: ExportSettings):
+        _file_mode = find_key(settings.file_mode, EXPORT_FILE_MODES)
         _format = find_key(settings.format, EXPORTERS)
         _encoding = find_key(settings.encoding, ENCODINGS)
 
         settings = {
-            "file_mode": settings.file_mode.name,
+            "file_mode": _file_mode,
             "format": _format,
             "encoding": _encoding,
             "output_dir": settings.output_dir,
