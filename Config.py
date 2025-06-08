@@ -1,6 +1,6 @@
 from BDRC.Data import *
 
-APP_VERSION = (0, 2, 1)
+APP_VERSION = (0, 3, 0)
 
 """
 Mappings for each data type
