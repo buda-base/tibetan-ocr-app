@@ -21,7 +21,7 @@ See our [Huggingface account](https://huggingface.co/BDRC) for the open access p
 
 ##### Windows
 
-1. Download and unzip https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.3.0/bdrc_ocr_windows_x64_0.3.0.zip
+1. Download and unzip https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.3.0/bdrc_ocr_windows_x64_0.3.zip
 2. Run the `.exe`
 
 ##### OSX
@@ -30,8 +30,8 @@ This app has packages for MacOS X on both Intel (x64) processors and Silicon/ARM
 
 1. Download and unzip
 
-- For recent hardware (M1, M2, etc.): https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.3.0/bdrc_ocr_macos_arm64_0.3.0.zip
-- For older x64 (Intel) processors: https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.3.0/bdrc_ocr_macos_x64_0.3.0.zip
+- For recent hardware (M1, M2, etc.): https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.3.0/bdrc_ocr_macos_arm64_0.3.zip
+- For older x64 (Intel) processors: https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.3.0/bdrc_ocr_macos_x64_0.3.zip
 
 2. Run the app
 
