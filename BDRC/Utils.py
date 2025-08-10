@@ -174,6 +174,23 @@ def import_local_models(model_path: str):
 
     return ocr_models
 
+def import_local_model(model_path: str):
+    _model = None
+    if os.path.isdir(model_path):
+        _config_file = os.path.join(model_path, "model_config.json")
+        if not os.path.isfile(_config_file):
+            return None
+
+        _config = read_ocr_model_config(_config_file)
+        _model = OCRModel(
+            guid=generate_guid(1),
+            name=Path(model_path).name,
+            path=model_path,
+            config=_config
+        )
+
+    return _model
+
 def read_ocr_model_config(config_file: str):
     model_dir = os.path.dirname(config_file)
     file = open(config_file, encoding="utf-8")
