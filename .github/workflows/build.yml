@@ -44,7 +44,7 @@ jobs:
           echo "ARTIFACT_NAME=${ARTIFACT_NAME}" | Out-File -FilePath $env:GITHUB_ENV -Append
           echo "ARTIFACT_PATH=$env:ARTIFACT_PATH" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           lfs: false
 
