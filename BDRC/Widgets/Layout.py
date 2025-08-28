@@ -9,6 +9,7 @@ from BDRC.Widgets.GraphicItems import ImagePreview
 from BDRC.Widgets.Buttons import MenuButton, TextToolsButton
 from BDRC.MVVM.viewmodel import DataViewModel, SettingsViewModel
 from BDRC.Widgets.Dialogs import TextInputDialog
+from BDRC.Translation import tr
 
 from PySide6.QtCore import Signal, QPoint, QPointF, QSize, QEvent, QRectF, QThreadPool
 from PySide6.QtGui import (
@@ -47,14 +48,15 @@ from PySide6.QtWidgets import (
 
 
 class HeaderTools(QFrame):
-    def __init__(self, data_view: DataViewModel, settings_view: SettingsViewModel, icon_size: int = 48):
+    def __init__(self, data_view: DataViewModel, settings_view: SettingsViewModel, icon_size: int = 48, translation_manager=None):
         super().__init__()
         self.setObjectName("HeaderTools")
         self.data_view = data_view
         self.settings_view = settings_view
+        self.translation_manager = translation_manager
         self.execution_dir = self.settings_view.get_execution_dir()
-        self.toolbox = ToolBox(self.execution_dir, ocr_models=self.settings_view.get_ocr_models(), icon_size=icon_size)
-        self.page_switcher = PageSwitcher(self.execution_dir, icon_size=icon_size)
+        self.toolbox = ToolBox(self.execution_dir, ocr_models=self.settings_view.get_ocr_models(), icon_size=icon_size, translation_manager=self.translation_manager)
+        self.page_switcher = PageSwitcher(self.execution_dir, icon_size=icon_size, translation_manager=self.translation_manager)
 
         # bind signals
         self.data_view.s_data_selected.connect(self.set_page_index)
@@ -95,14 +97,16 @@ class ToolBox(QWidget):
     s_run_all = Signal()
     s_copy_all = Signal()
     s_settings = Signal()
+    s_language_switch = Signal()
     s_update_page = Signal(int)
     s_on_select_model = Signal(OCRModel)
 
-    def __init__(self, execution_dir: str, ocr_models: List[OCRModel] | None, icon_size: int = 64):
+    def __init__(self, execution_dir: str, ocr_models: List[OCRModel] | None, icon_size: int = 64, translation_manager=None):
         super().__init__()
         self.setObjectName("ToolBox")
         self.ocr_models = ocr_models
         self.icon_size = icon_size
+        self.translation_manager = translation_manager
         self.setFixedHeight(self.icon_size+18)
         self.setMinimumWidth(720)
 
@@ -114,30 +118,31 @@ class ToolBox(QWidget):
         self.run_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "play_btn.png")
         self.run_all_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "play_all_btn.png")
         self.settings_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "settings.png")
+        self.language_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "settings.png")  # Reuse settings icon for now
 
         self.btn_new = MenuButton(
-            "New Project",
+            tr("New Project"),
             self.new_btn_icon,
             width=self.icon_size,
             height=self.icon_size,
         )
 
         self.btn_import_images = MenuButton(
-            "Import Images",
+            tr("Import Images"),
             self.import_btn_icon,
             width=self.icon_size,
             height=self.icon_size,
         )
 
         self.btn_import_pdf = MenuButton(
-            "Import PDF",
+            tr("Import PDF"),
             self.import_pdf_icon,
             width=self.icon_size,
             height=self.icon_size,
         )
 
         self.btn_copy_all = MenuButton(
-            "Copy All",
+            tr("Copy All"),
             self.copy_all_btn_icon,
             width=self.icon_size,
             height=self.icon_size,
@@ -145,29 +150,37 @@ class ToolBox(QWidget):
         self.btn_copy_all.setEnabled(False)
 
         self.btn_save = MenuButton(
-            "Save Output",
+            tr("Save Output"),
             self.save_btn_icon,
             width=self.icon_size,
             height=self.icon_size,
         )
 
         self.btn_run = MenuButton(
-            "Run OCR",
+            tr("Run OCR"),
             self.run_btn_icon,
             width=self.icon_size,
             height=self.icon_size,
         )
 
         self.btn_run_all = MenuButton(
-            "Run OCR on all images",
+            tr("Run OCR on all images"),
             self.run_all_btn_icon,
             width=self.icon_size,
             height=self.icon_size,
         )
 
         self.btn_settings = MenuButton(
-            "Settings",
+            tr("Settings"),
             self.settings_btn_icon,
+            width=self.icon_size,
+            height=self.icon_size,
+        )
+
+        # Language switcher button
+        self.btn_language = MenuButton(
+            tr("Switch Language"),
+            self.language_btn_icon,
             width=self.icon_size,
             height=self.icon_size,
         )
@@ -209,6 +222,7 @@ class ToolBox(QWidget):
         self.btn_run.clicked.connect(self.run)
         self.btn_run_all.clicked.connect(self.run_all)
         self.btn_settings.clicked.connect(self.settings)
+        self.btn_language.clicked.connect(self.switch_language)
 
         # disable buttons until data or OCR ready
         self.btn_run.setEnabled(False)
@@ -230,6 +244,7 @@ class ToolBox(QWidget):
         self.layout.addWidget(self.btn_run)
         self.layout.addWidget(self.btn_run_all)
         self.layout.addWidget(self.btn_settings)
+        self.layout.addWidget(self.btn_language)
         self.layout.addWidget(self.model_selection)
         self.setLayout(self.layout)
 
@@ -260,6 +275,37 @@ class ToolBox(QWidget):
 
     def settings(self):
         self.s_settings.emit()
+
+    def switch_language(self):
+        """Handle language switching."""
+        if self.translation_manager:
+            current_lang = self.translation_manager.get_current_language()
+            # Toggle between English and Tibetan
+            new_lang = "bo" if current_lang == "en" else "en"
+            success = self.translation_manager.switch_language(new_lang)
+            
+            if success:
+                # Save the new language preference
+                from PySide6.QtCore import QSettings
+                settings = QSettings("BDRC", "TibetanOCRApp")
+                settings.setValue("ui/language", new_lang)
+                
+                # Update button texts
+                self.update_button_texts()
+        else:
+            self.s_language_switch.emit()
+
+    def update_button_texts(self):
+        """Update button texts after language change."""
+        self.btn_new.setToolTip(tr("New Project"))
+        self.btn_import_images.setToolTip(tr("Import Images"))
+        self.btn_import_pdf.setToolTip(tr("Import PDF"))
+        self.btn_copy_all.setToolTip(tr("Copy All"))
+        self.btn_save.setToolTip(tr("Save Output"))
+        self.btn_run.setToolTip(tr("Run OCR"))
+        self.btn_run_all.setToolTip(tr("Run OCR on all images"))
+        self.btn_settings.setToolTip(tr("Settings"))
+        self.btn_language.setToolTip(tr("Switch Language"))
 
     def update_page(self, index: int):
         self.s_update_page.emit(index)
@@ -313,12 +359,13 @@ class ToolBox(QWidget):
 class PageSwitcher(QFrame):
     s_on_page_changed = Signal(int)
 
-    def __init__(self, execution_dir: str, pages: int = 0, icon_size: int = 36):
+    def __init__(self, execution_dir: str, pages: int = 0, icon_size: int = 36, translation_manager=None):
         super().__init__()
         self.setObjectName("PageSwitcher")
         self.icon_size = icon_size
         self.max_pages = pages
         self.current_index = 0
+        self.translation_manager = translation_manager
 
         self.layout = QHBoxLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
@@ -334,14 +381,14 @@ class PageSwitcher(QFrame):
         self.next_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "next.png")
 
         self.prev_button = MenuButton(
-            "Previous image",
+            tr("Previous image"),
             self.prev_btn_icon,
             width=self.icon_size,
             height=self.icon_size,
         )
 
         self.next_button = MenuButton(
-            "Next image",
+            tr("Next image"),
             self.next_btn_icon,
             width=self.icon_size,
             height=self.icon_size,
@@ -1333,13 +1380,14 @@ class TextWidget(QWidget):
 
 
 class TextView(QFrame):
-    def __init__(self, platform: Platform, dataview: DataViewModel, execution_dir: str, font_path: str, font_size: int = 18, encoding: Encoding = Encoding.Unicode):
+    def __init__(self, platform: Platform, dataview: DataViewModel, execution_dir: str, font_path: str, font_size: int = 18, encoding: Encoding = Encoding.Unicode, translation_manager=None):
         super().__init__()
         self.setObjectName("TextView")
         self.setContentsMargins(0, 0, 0, 0)
         self.platform = platform
         self._dataview = dataview
         self.execution_dir = execution_dir
+        self.translation_manager = translation_manager
         self.clip_board = QApplication.clipboard()
 
         # load persisted font size or default
@@ -1376,7 +1424,7 @@ class TextView(QFrame):
 
         self.convert_wylie_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "convert_wylie_unicode.png")
         self.convert_wylie_btn = MenuButton(
-            "convert between Wylie and Unicode",
+            tr("convert between Wylie and Unicode"),
             self.convert_wylie_btn_icon,
             width=32,
             height=32,
@@ -1385,7 +1433,7 @@ class TextView(QFrame):
 
         self.copy_text_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "copy.png")
         self.copy_text_btn = MenuButton(
-            "copy all text lines",
+            tr("copy all text lines"),
             self.copy_text_btn_icon,
             width=32,
             height=32,
