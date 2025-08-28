@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QButtonGroup, QRadioButton
 
 from BDRC.Data import LineMode, Language, Encoding
+from BDRC.Translation import tr
 
 # Line Models
 def build_line_mode(active_mode: LineMode):
@@ -9,11 +10,11 @@ def build_line_mode(active_mode: LineMode):
     line_mode_group.setExclusive(True)
     line_mode_group.setObjectName("OptionsRadio")
 
-    line_btn = QRadioButton("Line")
+    line_btn = QRadioButton(tr("Line"))
     line_btn.setObjectName("OptionsRadio")
     line_btn.setChecked(active_mode == LineMode.Line)
     
-    layout_btn = QRadioButton("Layout")
+    layout_btn = QRadioButton(tr("Layout"))
     layout_btn.setObjectName("OptionsRadio")
     layout_btn.setChecked(active_mode == LineMode.Layout)
 
@@ -30,7 +31,7 @@ def build_languages(active_language: Language):
     language_group.setExclusive(True)
     language_group.setObjectName("OptionsRadio")
 
-    tibetan_btn = QRadioButton("Tibetan")
+    tibetan_btn = QRadioButton(tr("Tibetan"))
     tibetan_btn.setObjectName("OptionsRadio")
     tibetan_btn.setChecked(active_language == Language.Tibetan)
 
@@ -45,7 +46,7 @@ def build_exporter_settings():
     exporter_group.setExclusive(False)
     exporter_group.setObjectName("OptionsRadio")
 
-    txt_btn = QRadioButton("TXT")
+    txt_btn = QRadioButton(tr("TXT"))
     txt_btn.setObjectName("OptionsRadio")
     txt_btn.setChecked(True)
 
@@ -60,11 +61,11 @@ def build_encodings(active_encoding: Encoding):
     encoding_group.setExclusive(True)
     encoding_group.setObjectName("OptionsRadio")
 
-    unicode_btn = QRadioButton("Unicode")
+    unicode_btn = QRadioButton(tr("Unicode"))
     unicode_btn.setObjectName("OptionsRadio")
     unicode_btn.setChecked(active_encoding == Encoding.Unicode)
 
-    wylie_btn = QRadioButton("Wylie")
+    wylie_btn = QRadioButton(tr("Wylie"))
     wylie_btn.setObjectName("OptionsRadio")
     wylie_btn.setChecked(active_encoding == Encoding.Wylie)
 
@@ -81,11 +82,11 @@ def build_binary_selection(current_setting: bool):
     group.setExclusive(True)
     group.setObjectName("OptionsRadio")
 
-    on_btn = QRadioButton("On")
+    on_btn = QRadioButton(tr("On"))
     on_btn.setObjectName("OptionsRadio")
     on_btn.setChecked(current_setting)
 
-    off_btn = QRadioButton("Off")
+    off_btn = QRadioButton(tr("Off"))
     off_btn.setObjectName("OptionsRadio")
     off_btn.setChecked(not current_setting)
 

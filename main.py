@@ -24,6 +24,7 @@ from BDRC.MVVM.viewmodel import DataViewModel, SettingsViewModel
 from BDRC.Utils import get_screen_center, get_platform, create_dir
 from PySide6.QtWidgets import QApplication
 from BDRC.Styles import DARK
+from BDRC.Translation import TranslationManager
 
 APP_NAME = "BDRC_OCR"
 APP_AUTHOR = "BDRC"
@@ -38,6 +39,15 @@ if __name__ == "__main__":
     app = QApplication()
     app.setStyleSheet(DARK)
 
+    # Initialize translation manager
+    translation_manager = TranslationManager(app, execution_dir)
+    
+    # Load saved language preference or default to English
+    from PySide6.QtCore import QSettings
+    settings = QSettings("BDRC", "TibetanOCRApp")
+    saved_language = settings.value("ui/language", "en")
+    translation_manager.load_translation(saved_language)
+
     data_model = OCRDataModel()
     settings_model = SettingsModel(udi, execution_dir)
 
@@ -49,7 +59,8 @@ if __name__ == "__main__":
     app_view = AppView(
         dataview_model,
         settingsview_model,
-        platform
+        platform,
+        translation_manager
     )
 
     app_view.resize(screen_data.start_width, screen_data.start_height)

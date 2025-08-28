@@ -22,6 +22,7 @@ from PySide6.QtGui import QColor
 
 from BDRC.Data import AppSettings, OCRSettings, OCRModel, LineMode, Encoding
 from BDRC.Utils import import_local_models
+from BDRC.Translation import tr
 from BDRC.Widgets.Dialogs.helpers import (
     build_line_mode,
     build_encodings,
@@ -186,7 +187,7 @@ class SettingsDialog(QDialog):
         # encoding
         encoding_layout = QHBoxLayout()
         encoding_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        encoding_label = QLabel("Encoding")
+        encoding_label = QLabel(tr("Encoding"))
         encoding_label.setObjectName("OptionsLabel")
         encoding_layout.addWidget(encoding_label)
 
@@ -196,7 +197,7 @@ class SettingsDialog(QDialog):
         # dewarping
         dewarping_layout = QHBoxLayout()
         dewarping_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        dewarping_label = QLabel("Dewarping")
+        dewarping_label = QLabel(tr("Dewarping"))
         dewarping_label.setObjectName("OptionsLabel")
         dewarping_layout.addWidget(dewarping_label)
         for btn in self.dewarp_buttons:
@@ -205,7 +206,7 @@ class SettingsDialog(QDialog):
         # merge lines
         merge_layout = QHBoxLayout()
         merge_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        merge_label = QLabel("Merge")
+        merge_label = QLabel(tr("Merge"))
         merge_label.setObjectName("OptionsLabel")
         merge_layout.addWidget(merge_label)
 
@@ -395,7 +396,7 @@ class SettingsDialog(QDialog):
         file_dialog = QFileDialog()
         file_dialog.setFileMode(QFileDialog.Directory)
         file_dialog.setOption(QFileDialog.ShowDirsOnly, True)
-        file_dialog.setWindowTitle("Select Model Directory")
+        file_dialog.setWindowTitle(tr("Select Model Directory"))
         
         if file_dialog.exec():
             selected_dir = file_dialog.selectedFiles()[0]
@@ -406,8 +407,8 @@ class SettingsDialog(QDialog):
                     
                     # Confirm with the user
                     confirm_dialog = QMessageBox()
-                    confirm_dialog.setWindowTitle("Confirm Model Import")
-                    confirm_dialog.setText("Do you want to import the selected models? Existing models will be replaced.")
+                    confirm_dialog.setWindowTitle(tr("Confirm Model Import"))
+                    confirm_dialog.setText(tr("Do you want to import the selected models? Existing models will be replaced."))
                     confirm_dialog.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
                     confirm_dialog.setDefaultButton(QMessageBox.No)
                     

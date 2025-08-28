@@ -47,19 +47,20 @@ class MainView(QWidget):
     s_run_batch_ocr = Signal()
     s_handle_settings = Signal()
 
-    def __init__(self, data_view: DataViewModel, settings_view: SettingsViewModel, platform: Platform):
+    def __init__(self, data_view: DataViewModel, settings_view: SettingsViewModel, platform: Platform, translation_manager=None):
         super().__init__()
         self.setObjectName("MainView")
         self.setContentsMargins(0, 0, 0, 0)
         self._data_view = data_view
         self._settings_view = settings_view
         self.platform = platform
+        self.translation_manager = translation_manager
         self.resource_dir = self._settings_view.get_execution_dir()
         self.default_font = self._settings_view.get_default_font_path()
 
-        self.header_tools = HeaderTools(self._data_view, self._settings_view)
+        self.header_tools = HeaderTools(self._data_view, self._settings_view, translation_manager=self.translation_manager)
         self.canvas = Canvas(self.resource_dir )
-        self.text_view = TextView(platform=self.platform, dataview=self._data_view, execution_dir=self.resource_dir, font_path=self.default_font)
+        self.text_view = TextView(platform=self.platform, dataview=self._data_view, execution_dir=self.resource_dir, font_path=self.default_font, translation_manager=self.translation_manager)
         self.v_splitter = QSplitter(Qt.Orientation.Vertical)
         self.v_splitter.setHandleWidth(10)
         self.v_splitter.addWidget(self.canvas)
@@ -204,7 +205,8 @@ class AppView(QWidget):
     def __init__(self,
                  dataview_model: DataViewModel,
                  settingsview_model: SettingsViewModel,
-                 platform: Platform):
+                 platform: Platform,
+                 translation_manager=None):
         super().__init__()
 
         self.setObjectName("MainWindow")
@@ -214,12 +216,13 @@ class AppView(QWidget):
         self.threadpool = QThreadPool()
         self._dataview_model = dataview_model
         self._settingsview_model = settingsview_model
+        self.translation_manager = translation_manager
 
         self.tmp_dir = self._settingsview_model.get_tmp_dir()
         self.resource_dir = self._settingsview_model.get_execution_dir()
 
         self.image_gallery = ImageGallery(self._dataview_model, self.threadpool, self.resource_dir)
-        self.main_container = MainView(self._dataview_model, self._settingsview_model, self.platform)
+        self.main_container = MainView(self._dataview_model, self._settingsview_model, self.platform, self.translation_manager)
         self.h_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.h_splitter.setHandleWidth(10)
         self.h_splitter.setContentsMargins(0, 0, 0, 0)
