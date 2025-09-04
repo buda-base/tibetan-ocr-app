@@ -1,3 +1,11 @@
+"""
+Export functionality for OCR results in various formats.
+
+This module provides classes for exporting OCR results to different formats
+including plain text, PageXML, and JSON. The base Exporter class defines
+the interface, with concrete implementations for each format.
+"""
+
 import abc
 import json
 from typing import List
@@ -17,7 +25,20 @@ from BDRC.Utils import (
 
 
 class Exporter:
+    """
+    Abstract base class for OCR result exporters.
+    
+    Defines the interface and common functionality for exporting OCR results
+    to various formats. Subclasses implement specific export formats.
+    """
+    
     def __init__(self, output_dir: str):
+        """
+        Initialize the exporter with output directory.
+        
+        Args:
+            output_dir: Directory path where exported files will be saved
+        """
         self.output_dir = output_dir
         self.converter = pyewts.pyewts()
         logging.info("Init Exporter")
@@ -49,6 +70,15 @@ class Exporter:
 
     @staticmethod
     def get_bbox(bbox: BBox) -> tuple[int, int, int, int]:
+        """
+        Convert BBox object to tuple format.
+        
+        Args:
+            bbox: BBox object with x, y, w, h attributes
+            
+        Returns:
+            Tuple of (x, y, width, height)
+        """
         x = bbox.x
         y = bbox.y
         w = bbox.w
@@ -58,6 +88,15 @@ class Exporter:
 
     @staticmethod
     def get_text_points(contour):
+        """
+        Convert contour points to string format for XML export.
+        
+        Args:
+            contour: Contour points array
+            
+        Returns:
+            Space-separated string of x,y coordinates
+        """
         points = ""
         for box in contour:
             point = f"{box[0][0]},{box[0][1]} "
@@ -66,16 +105,49 @@ class Exporter:
 
     @staticmethod
     def get_bbox_points(bbox: BBox):
+        """
+        Convert BBox to coordinate points string for XML export.
+        
+        Args:
+            bbox: BBox object defining rectangular region
+            
+        Returns:
+            String of corner coordinates in XML format
+        """
         points = f"{bbox.x},{bbox.y} {bbox.x + bbox.w},{bbox.y} {bbox.x + bbox.w},{bbox.y + bbox.h} {bbox.x},{bbox.y + bbox.h}"
         return points
 
 
 class PageXMLExporter(Exporter):
+    """
+    Exporter for PageXML format compatible with Transkribus and other OCR tools.
+    
+    PageXML is a standardized format for representing document layout and
+    OCR results with detailed coordinate information.
+    """
+    
     def __init__(self, output_dir: str) -> None:
+        """
+        Initialize PageXML exporter.
+        
+        Args:
+            output_dir: Directory path for exported XML files
+        """
         super().__init__(output_dir)
         logging.info("Init XML Exporter")
 
     def get_text_line_block(self, coordinate, index: int, unicode_text: str):
+        """
+        Create XML element for a single text line.
+        
+        Args:
+            coordinate: Line coordinate information
+            index: Line index for ordering
+            unicode_text: Recognized text content
+            
+        Returns:
+            XML element representing the text line
+        """
         text_line = etree.Element(
             "Textline", id="", custom=f"readingOrder {{index:{index};}}"
         )
@@ -102,6 +174,19 @@ class PageXMLExporter(Exporter):
         lines: List[str],
         text_lines: List[OCRLine] | None,
     ):
+        """
+        Build complete PageXML document structure.
+        
+        Args:
+            image: Source image array for dimensions
+            image_name: Name of the image file
+            text_bbox: Bounding box coordinates for text region
+            lines: List of line coordinate strings
+            text_lines: List of OCR text results
+            
+        Returns:
+            Formatted XML document string
+        """
         root = etree.Element("PcGts")
         root.attrib["xmlns"] = (
             "http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15"
@@ -209,7 +294,19 @@ class PageXMLExporter(Exporter):
             f.write(xml_doc)
 
 class TextExporter(Exporter):
+    """
+    Simple text file exporter for OCR results.
+    
+    Exports recognized text as plain text files with one line per text line.
+    """
+    
     def __init__(self, output_dir: str) -> None:
+        """
+        Initialize text exporter.
+        
+        Args:
+            output_dir: Directory path for exported text files
+        """
         super().__init__(output_dir)
         logging.info("Init Text Exporter")
 
@@ -222,6 +319,18 @@ class TextExporter(Exporter):
             optimize: bool = True,
             bbox: bool = False,
             angle: float = 0.0):
+        """
+        Export OCR results to plain text file.
+        
+        Args:
+            image: Source image (not used for text export)
+            image_name: Base name for output file
+            lines: Line detection results (not used for text export)
+            text_lines: OCR text results to export
+            optimize: Optimization flag (not used for text export)
+            bbox: Bounding box flag (not used for text export)
+            angle: Rotation angle (not used for text export)
+        """
 
         out_file = f"{self.output_dir}/{image_name}.txt"
 
@@ -230,6 +339,13 @@ class TextExporter(Exporter):
                 f.write(f"{_line.text}\n")
 
     def export_text(self, image_name: str, lines: List[OCRLine]):
+        """
+        Export text lines to a plain text file.
+        
+        Args:
+            image_name: Base name for output file
+            lines: List of OCR text lines to export
+        """
         out_file = f"{self.output_dir}/{image_name}.txt"
 
         with open(out_file, "w", encoding="UTF-8") as f:
@@ -238,7 +354,20 @@ class TextExporter(Exporter):
 
 
 class JsonExporter(Exporter):
+    """
+    JSON/JSONL exporter for OCR results with coordinate information.
+    
+    Exports OCR results as JSON Lines format including both text content
+    and coordinate information for lines and text regions.
+    """
+    
     def __init__(self, output_dir: str) -> None:
+        """
+        Initialize JSON exporter.
+        
+        Args:
+            output_dir: Directory path for exported JSON files
+        """
         super().__init__(output_dir)
         logging.info("Init JSON Exporter")
 
@@ -252,6 +381,18 @@ class JsonExporter(Exporter):
         bbox: bool = False,
         angle: float = 0.0
     ):
+        """
+        Export OCR results to JSON Lines format.
+        
+        Args:
+            image: Source image (used for coordinate transformation)
+            image_name: Base name for output file
+            lines: Line detection results with coordinates
+            text_lines: OCR text results
+            optimize: Whether to optimize contours
+            bbox: Whether to use bounding boxes instead of contours
+            angle: Rotation angle for coordinate transformation
+        """
 
         if angle != abs(0):
             x_center = image.shape[1] // 2

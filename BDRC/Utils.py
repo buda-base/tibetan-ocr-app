@@ -1,3 +1,15 @@
+"""
+Utility functions for image processing, OCR operations, and file management.
+
+This module contains a comprehensive set of utility functions for:
+- Image processing and transformation
+- Screen and platform detection
+- OCR model management
+- File operations and directory handling
+- Line detection and sorting algorithms
+- Image dewarping and geometric transformations
+"""
+
 import os
 import cv2
 import json
@@ -32,6 +44,16 @@ page_classes = {
             }
 
 def get_screen_center(app: QApplication, start_size_ratio: float = 0.8) -> ScreenData:
+    """
+    Calculate optimal window size and position for the application.
+    
+    Args:
+        app: QApplication instance to get screen information from
+        start_size_ratio: Ratio of screen size to use for initial window size
+        
+    Returns:
+        ScreenData with calculated dimensions and positioning
+    """
     screen = app.primaryScreen()
     rect = screen.availableGeometry()
     max_width = rect.width()
@@ -56,6 +78,12 @@ def get_screen_center(app: QApplication, start_size_ratio: float = 0.8) -> Scree
 
 
 def get_platform() -> Platform:
+    """
+    Detect the current operating system platform.
+    
+    Returns:
+        Platform enum value for Windows, Mac, or Linux
+    """
     _platform_tag = platform.platform()
     _platform_tag = _platform_tag.split("-")[0]
 
@@ -70,23 +98,50 @@ def get_platform() -> Platform:
 
 
 def get_utc_time():
+    """
+    Get current UTC time as a formatted string.
+    
+    Returns:
+        Current UTC time in ISO format (YYYY-MM-DDTHH:MM:SS)
+    """
     utc_time = datetime.now()
     utc_time = utc_time.strftime('%Y-%m-%dT%H:%M:%S')
 
     return utc_time
 
 def get_execution_providers() -> List[str]:
+    """
+    Get available ONNX runtime execution providers.
+    
+    Returns:
+        List of available execution provider names
+    """
     available_providers = ort.get_available_providers()
     print(f"Available ONNX providers: {available_providers}")
     return available_providers
 
 def get_filename(file_path: str) -> str:
+    """
+    Extract filename without extension from a file path.
+    
+    Args:
+        file_path: Full path to the file
+        
+    Returns:
+        Filename without extension
+    """
     name_segments = os.path.basename(file_path).split(".")[:-1]
     name = "".join(f"{x}." for x in name_segments)
     return name.rstrip(".")
 
 
 def create_dir(dir_name: str) -> None:
+    """
+    Create a directory if it doesn't exist.
+    
+    Args:
+        dir_name: Path of the directory to create
+    """
     if not os.path.exists(dir_name):
         try:
             os.makedirs(dir_name)
@@ -96,6 +151,15 @@ def create_dir(dir_name: str) -> None:
 
 
 def generate_guid(clock_seq: int):
+    """
+    Generate a UUID with a specific clock sequence.
+    
+    Args:
+        clock_seq: Clock sequence value for UUID generation
+        
+    Returns:
+        Generated UUID
+    """
     return uuid1(clock_seq=clock_seq)
 
 
@@ -139,6 +203,15 @@ def build_ocr_data(id_val, file_path: str, target_width: int = None):
     return ocr_data
 
 def read_theme_file(file_path: str) -> dict | None:
+    """
+    Load theme configuration from a JSON file.
+    
+    Args:
+        file_path: Path to the theme configuration file
+        
+    Returns:
+        Theme configuration dictionary, or None if file doesn't exist
+    """
     if os.path.isfile(file_path):
         with open(file_path, "r") as f:
             content = json.load(f)
@@ -150,6 +223,15 @@ def read_theme_file(file_path: str) -> dict | None:
 
 
 def import_local_models(model_path: str):
+    """
+    Import all OCR models from a directory.
+    
+    Args:
+        model_path: Directory path containing OCR model subdirectories
+        
+    Returns:
+        List of OCRModel instances loaded from the directory
+    """
     tick = 1
     ocr_models = []
 
@@ -175,6 +257,15 @@ def import_local_models(model_path: str):
     return ocr_models
 
 def import_local_model(model_path: str):
+    """
+    Import a single OCR model from a directory.
+    
+    Args:
+        model_path: Directory path containing a single OCR model
+        
+    Returns:
+        OCRModel instance or None if model cannot be loaded
+    """
     _model = None
     if os.path.isdir(model_path):
         _config_file = os.path.join(model_path, "model_config.json")
@@ -192,6 +283,15 @@ def import_local_model(model_path: str):
     return _model
 
 def read_ocr_model_config(config_file: str):
+    """
+    Load OCR model configuration from a JSON file.
+    
+    Args:
+        config_file: Path to the model configuration JSON file
+        
+    Returns:
+        OCRModelConfig instance with loaded parameters
+    """
     model_dir = os.path.dirname(config_file)
     file = open(config_file, encoding="utf-8")
     json_content = json.loads(file.read())
@@ -230,6 +330,16 @@ def read_ocr_model_config(config_file: str):
 
 
 def resize_to_height(image, target_height: int):
+    """
+    Resize image to a specific height while maintaining aspect ratio.
+    
+    Args:
+        image: Input image array
+        target_height: Desired height in pixels
+        
+    Returns:
+        Tuple of (resized_image, scale_ratio)
+    """
     scale_ratio = target_height / image.shape[0]
     image = cv2.resize(
         image,
@@ -240,6 +350,16 @@ def resize_to_height(image, target_height: int):
 
 
 def resize_to_width(image, target_width: int = 2048):
+    """
+    Resize image to a specific width while maintaining aspect ratio.
+    
+    Args:
+        image: Input image array
+        target_width: Desired width in pixels (default: 2048)
+        
+    Returns:
+        Tuple of (resized_image, scale_ratio)
+    """
     scale_ratio = target_width / image.shape[1]
     image = cv2.resize(
         image,
@@ -249,6 +369,16 @@ def resize_to_width(image, target_width: int = 2048):
     return image, scale_ratio
 
 def calculate_steps(image: npt.NDArray, patch_size: int = 512) -> Tuple[int, int]:
+    """
+    Calculate number of patches needed to tile an image.
+    
+    Args:
+        image: Input image array
+        patch_size: Size of each square patch (default: 512)
+        
+    Returns:
+        Tuple of (x_steps, y_steps) for tiling
+    """
     x_steps = image.shape[1] / patch_size
     y_steps = image.shape[0] / patch_size
 
@@ -261,6 +391,18 @@ def calculate_steps(image: npt.NDArray, patch_size: int = 512) -> Tuple[int, int
 def calculate_paddings(
     image: npt.NDArray, x_steps: int, y_steps: int, patch_size: int = 512
 ) -> tuple[int, int]:
+    """
+    Calculate padding needed to make image divisible into patches.
+    
+    Args:
+        image: Input image array
+        x_steps: Number of horizontal patches
+        y_steps: Number of vertical patches
+        patch_size: Size of each patch
+        
+    Returns:
+        Tuple of (pad_x, pad_y) padding values
+    """
     max_x = x_steps * patch_size
     max_y = y_steps * patch_size
     pad_x = max_x - image.shape[1]
@@ -272,6 +414,18 @@ def calculate_paddings(
 def pad_image(
     image: npt.NDArray, pad_x: int, pad_y: int, pad_value: int = 0
 ) -> npt.NDArray:
+    """
+    Add padding to an image.
+    
+    Args:
+        image: Input image array
+        pad_x: Horizontal padding to add
+        pad_y: Vertical padding to add
+        pad_value: Value to use for padding (default: 0)
+        
+    Returns:
+        Padded image array
+    """
     padded_img = np.pad(
         image,
         pad_width=((0, pad_y), (0, pad_x), (0, 0)),
@@ -282,16 +436,47 @@ def pad_image(
     return padded_img
 
 def get_contours(image: npt.NDArray) -> Sequence:
+    """
+    Find contours in a binary image.
+    
+    Args:
+        image: Binary image array
+        
+    Returns:
+        Sequence of detected contours
+    """
     contours, _ = cv2.findContours(image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
     return contours
 
 
 def sigmoid(x):
+    """
+    Apply sigmoid activation function.
+    
+    Args:
+        x: Input value or array
+        
+    Returns:
+        Sigmoid of input (value between 0 and 1)
+    """
     return 1 / (1 + np.exp(-x))
 
 
 def run_tps(image: npt.NDArray, input_pts, output_pts, add_corners=True, alpha=0.5):
+    """
+    Apply Thin Plate Spline transformation to dewarp an image.
+    
+    Args:
+        image: Input image to transform
+        input_pts: Source control points
+        output_pts: Target control points
+        add_corners: Whether to add corner control points
+        alpha: TPS regularization parameter
+        
+    Returns:
+        Dewarped image array
+    """
 
     if len(image.shape) == 3:
         height, width, _ = image.shape
@@ -599,6 +784,16 @@ def optimize_countour(cnt, e=0.001):
 
 
 def build_line_data(contour: np.array, optimize: bool = True) -> Line:
+    """
+    Create a Line object from a contour with bounding box and center information.
+    
+    Args:
+        contour: Contour points array
+        optimize: Whether to optimize the contour shape
+        
+    Returns:
+        Line object with GUID, contour, bounding box, and center point
+    """
     if optimize:
         contour = optimize_countour(contour)
 
@@ -780,6 +975,19 @@ def sort_lines_by_threshold(
     calculate_threshold: bool = True,
     group_lines: bool = True
 ):
+    """
+    Sort detected lines by vertical position using threshold-based grouping.
+    
+    Args:
+        line_mask: Binary mask of detected lines
+        lines: List of Line objects to sort
+        threshold: Vertical distance threshold for grouping
+        calculate_threshold: Whether to auto-calculate threshold
+        group_lines: Whether to merge nearby lines
+        
+    Returns:
+        Tuple of (sorted_lines, calculated_threshold)
+    """
     bbox_centers = [x.center for x in lines]
 
     if calculate_threshold:
@@ -885,7 +1093,20 @@ def preprocess_image(
     clamp_size: bool = True,
 ):
     """
-    Some dimension checking and resizing to avoid very large inputs on which the line(s) on the resulting tiles could be too big and cause troubles with the current line model.
+    Preprocess image for OCR by resizing and padding to patch-compatible dimensions.
+    
+    Some dimension checking and resizing to avoid very large inputs on which the line(s) 
+    on the resulting tiles could be too big and cause troubles with the current line model.
+    
+    Args:
+        image: Input image array
+        patch_size: Target patch size for tiling
+        clamp_width: Maximum allowed width
+        clamp_height: Maximum allowed height
+        clamp_size: Whether to enforce size limits
+        
+    Returns:
+        Tuple of (processed_image, pad_x, pad_y)
     """
     if clamp_size and image.shape[1] > image.shape[0] and image.shape[1] > clamp_width:
         image, _ = resize_to_width(image, clamp_width)
@@ -951,8 +1172,16 @@ def get_line_image(image: npt.NDArray, mask: npt.NDArray, bbox_h: int, bbox_tole
         fallback_img = np.zeros((bbox_h, bbox_h * 2, 3), dtype=np.uint8)
         return fallback_img, k_factor
 
-# TODO: check if this is the same normalization applied during training
 def normalize(image: npt.NDArray) -> npt.NDArray:
+    """
+    Normalize image pixel values to range [0, 1].
+    
+    Args:
+        image: Input image array with values in range [0, 255]
+        
+    Returns:
+        Normalized image array with values in range [0, 1]
+    """
     image = image.astype(np.float32)
     image /= 255.0
     return image
