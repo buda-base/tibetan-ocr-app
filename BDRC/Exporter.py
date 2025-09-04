@@ -16,10 +16,11 @@ import numpy.typing as npt
 from xml.dom import minidom
 import xml.etree.ElementTree as etree
 from BDRC.Data import BBox, Line, OCRLine
+from BDRC.line_detection import optimize_countour
 from BDRC.Utils import (
     get_utc_time,
     rotate_contour,
-    optimize_countour, get_text_bbox,
+    get_text_bbox,
 )
 
 

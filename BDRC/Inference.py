@@ -19,23 +19,30 @@ from BDRC.Data import (
 )
 
 from pyctcdecode import build_ctcdecoder
-from BDRC.Utils import (
-    apply_global_tps,
+from BDRC.line_detection import (
     build_line_data,
     extract_line_images,
     optimize_countour,
+    sort_lines_by_threshold2,
+    build_raw_line_data,
+    filter_line_contours
+)
+
+from BDRC.image_dewarping import (
+    apply_global_tps,
+    check_for_tps
+)
+
+from BDRC.Utils import (
     preprocess_image,
     binarize,
     normalize,
-    sort_lines_by_threshold2,
     stitch_predictions,
     tile_image,
     sigmoid,
     pad_to_height,
     pad_to_width,
-    build_raw_line_data,
-    filter_line_contours,
-    check_for_tps, get_execution_providers
+    get_execution_providers
 )
 
 
