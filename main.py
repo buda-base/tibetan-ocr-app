@@ -1,17 +1,20 @@
 
 """
-- build for windows:
-     nuitka --standalone --windows-console-mode=disable --output-dir=WindowsBuild --plugin-enable=pyside6 --windows-icon-from-ico=logo.ico --company-name=BDRC --product-name="Tibetan OCR App" --file-version=1.0 --product-version=1.0  --include-data-dir=./Assets=Assets --include-data-dir=./Models=Models --include-data-dir=./OCRModels=OCRModels main.py
-- build for macos:
-    nuitka --standalone --output-dir=OSXBuild --plugin-enable=pyside6 --company-name=BDRC --product-name="Tibetan OCR App" --file-version=1.0 --product-version=1.0 --macos-app-name="BDRC Tibetan OCR App" --macos-signed-app-name="io.bdrc.ocrapp" --macos-create-app-bundle --macos-app-icon=logo.icns --include-data-dir=./Assets=Assets --include-data-dir=./Models=Models --include-data-dir=./OCRModels=OCRModels main.py
-- build for Linux:
-    nuitka --standalone --onefile --output-dir="LinuxBuild" --plugin-enable=pyside6 --company-name=BDRC --product-name="Tibetan OCR App" --file-version=1.0 --product-version=1.0 --include-data-dir=./Assets=Assets --include-data-dir=./Models=Models --include-data-dir=./OCRModels=OCRModels main.py
+Main entry point for the Tibetan OCR Desktop Application.
 
-- Debug build using pyinstaller:
-    MacOs (Default): pyinstaller main.py --distpath="DebugBuild" --add-data="Assets:Assets" --add-data="Models:Models" --add-data="OCRModels:OCRModels"
-    MacOs (e.g. Intel): pyinstaller main.py --distpath="DebugBuild" --target-arch="x86_64" --add-data="Assets:Assets" --add-data="Models:Models" --add-data="OCRModels:OCRModels"
-Note:
-    If you edit the resources.qrc file, make sure to recompile it by using: pyside6-rcc resources.qrc -o resources.py
+This script initializes and runs the OCR application using the MVVM pattern
+with PySide6 for the GUI framework. It sets up the application models,
+view models, and main view, handles translation management, and manages
+application settings.
+
+The application supports:
+- Multiple OCR models for different Tibetan scripts
+- Line and layout detection modes
+- Text encoding conversion (Wylie/Unicode)
+- Multiple export formats (Text, XML, JSON)
+- Internationalization support
+
+Build commands for different platforms are included at the top of the file.
 """
 
 import os
@@ -31,6 +34,17 @@ APP_AUTHOR = "BDRC"
 
 
 if __name__ == "__main__":
+    """
+    Application initialization and startup sequence.
+    
+    1. Detect platform and setup directories
+    2. Initialize Qt application with dark theme
+    3. Setup translation management
+    4. Create and configure data and settings models
+    5. Initialize view models
+    6. Create and display main application window
+    7. Start Qt event loop
+    """
     platform = get_platform()
     execution_dir= os.path.dirname(__file__)
     udi = user_data_dir(APP_NAME, APP_AUTHOR)
