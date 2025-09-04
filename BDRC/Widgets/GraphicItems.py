@@ -7,7 +7,7 @@ from PySide6.QtGui import QPixmap, QTransform
 from BDRC.Data import Line
 from PySide6.QtWidgets import QGraphicsPixmapItem, QGraphicsItem
 
-from BDRC.Utils import rotate_from_angle
+from BDRC.line_detection import rotate_from_angle
 
 
 class ImagePreview(QGraphicsPixmapItem):
