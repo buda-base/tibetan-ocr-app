@@ -6,7 +6,7 @@
     <!-- Main Toolbar Buttons -->
     <message>
         <source>New Project</source>
-        <translation>ལས་འཆར་གསར་བ།</translation>
+        <translation>ལས་གཞི་གསར་བ།</translation>
     </message>
     <message>
         <source>Import Images</source>
@@ -14,23 +14,23 @@
     </message>
     <message>
         <source>Import PDF</source>
-        <translation>PDF ཡིག་ཆ་འདྲེན་པ།</translation>
+        <translation>PDFཡིག་ཆ་འདྲེན་པ།</translation>
     </message>
     <message>
         <source>Copy All</source>
-        <translation>ཡོངས་ལ་འདྲ་བཟོ།</translation>
+        <translation>ཆ་ཚང་འདྲ་བཤུ།</translation>
     </message>
     <message>
         <source>Save Output</source>
-        <translation>འབྲས་བུ་ཉར་ཚགས།</translation>
+        <translation>ཐོན་འབྲས་ཉར་ཚགས།</translation>
     </message>
     <message>
         <source>Run OCR</source>
-        <translation>OCR གཡོབ་པ།</translation>
+        <translation>OCRཡིག་འཛིན་གྱིས།</translation>
     </message>
     <message>
         <source>Run OCR on all images</source>
-        <translation>པར་རིས་ཡོངས་ལ་OCR གཡོབ་པ།</translation>
+        <translation>པར་རིས་ཡོངས་ལ་OCRཡིག་འཛིན་གྱིས།</translation>
     </message>
     <message>
         <source>Settings</source>
@@ -40,43 +40,43 @@
     <!-- Text View Buttons -->
     <message>
         <source>convert between Wylie and Unicode</source>
-        <translation>ཝ་ལི་དང་ཡུ་ནི་ཁོད་བར་བསྒྱུར་བ།</translation>
+        <translation>ཝེ་ལི་དང་གཅིག་གྱུར་ཨང་སྒྲིག་ཕན་ཚུན་སྒྱུར་བ།</translation>
     </message>
     <message>
         <source>copy all text lines</source>
-        <translation>ཡི་གེའི་ཕྲེང་བ་ཡོངས་ལ་འདྲ་བཟོ།</translation>
+        <translation>ཡིག་ཕྲེང་ཡོངས་འདྲ་བཤུ།</translation>
     </message>
     
     <!-- Page Navigation -->
     <message>
         <source>Previous image</source>
-        <translation>སྔོན་གྱི་པར་རིས།</translation>
+        <translation>པར་རིས་སྔོན་མ།</translation>
     </message>
     <message>
         <source>Next image</source>
-        <translation>རྗེས་ཀྱི་པར་རིས།</translation>
+        <translation>པར་རིས་རྗེས་མ།</translation>
     </message>
     
     <!-- Dialog Labels -->
     <message>
         <source>Encoding</source>
-        <translation>ཨང་རྟགས་ཚད་ལྡན།</translation>
+        <translation>ཨང་སྒྲིག</translation>
     </message>
     <message>
         <source>Dewarping</source>
-        <translation>དབྱིབས་བཅོས།</translation>
+        <translation>དབྱིབས་ལེགས་བཅོས།</translation>
     </message>
     <message>
         <source>Merge</source>
-        <translation>མཉམ་སྦྱོར།</translation>
+        <translation>མཉམ་སྲེ།</translation>
     </message>
     <message>
         <source>Unicode</source>
-        <translation>ཡུ་ནི་ཁོད།</translation>
+        <translation>གཅིག་གྱུར་ཨང་སྒྲིག</translation>
     </message>
     <message>
         <source>Wylie</source>
-        <translation>ཝ་ལི།</translation>
+        <translation>ཝེ་ལི།</translation>
     </message>
     <message>
         <source>On</source>
@@ -84,11 +84,11 @@
     </message>
     <message>
         <source>Off</source>
-        <translation>ཁ་བརྒྱབ།</translation>
+        <translation>ཁ་རྒྱག</translation>
     </message>
     <message>
         <source>Line</source>
-        <translation>ཕྲེང་བ།</translation>
+        <translation>ཐིག་ཕྲེང་།</translation>
     </message>
     <message>
         <source>Layout</source>
@@ -100,7 +100,7 @@
     </message>
     <message>
         <source>TXT</source>
-        <translation>ཡི་གེ།</translation>
+        <translation>ཡི་གེ</translation>
     </message>
     
     <!-- Language Switcher -->
@@ -124,7 +124,7 @@
     </message>
     <message>
         <source>Do you want to import the selected models? Existing models will be replaced.</source>
-        <translation>འདེམས་ཟིན་པའི་དཔེ་གཞི་འདྲེན་འདོད་དམ། ཡོད་ཟིན་པའི་དཔེ་གཞི་ཚབ་བྱེད།</translation>
+        <translation>འདེམས་ཡོད་པའི་དཔེ་གཞི་རྣམས་འདྲེན་རྒྱུ་ཡིན་ནམ། ད་ཡོད་ཀྱི་དཔེ་གཞི་རྣམས་འདེམས་ཡོད་པའི་དཔེ་གཞི་ཡིས་བརྗེ་སྲིད།</translation>
     </message>
 </context>
 </TS>
