@@ -57,6 +57,6 @@ coll = COLLECT(
 )
 
 app = BUNDLE(coll,
-             name='BDRC Tibetan OCR.app',
+             name='BDRC-MonlamAI Tibetan OCR.app',
              icon="logo.icns",
              bundle_identifier=None)

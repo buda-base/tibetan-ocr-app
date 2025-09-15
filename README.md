@@ -1,6 +1,6 @@
-# Tibetan OCR local app
+# BDRC-MonlamAI Tibetan OCR desktop app
 
-This app is a free and open source offline App that can be installed on a local compter to run Tibetan OCR on batches of images (including in PDFs). It was developed by Eric Werner for the [Buddhist Digital Resource Center](https://www.bdrc.io).
+This app is a free and open source desktop app that can be installed on a local compter to run Tibetan OCR on batches of images (including in PDFs). It was developed by Eric Werner for the [Buddhist Digital Resource Center](https://www.bdrc.io) and uses the pipeline developed during the BDRC-MonlamAI OCR Project.
 
 ### Main features
 
@@ -10,9 +10,9 @@ It can also optionally dewarp images as well as convert the output to Wylie.
 
 Instead of providing one model that can handle all styles of Tibetan writing, we provide a few different models that we encourage users to experiment with to see what fits their data best.
 
-The models it uses are based on transcriptions available online, from BDRC, [ALL](https://asianlegacylibrary.org/), [Adarsha](https://adarshah.org/), and [NorbuKetaka](http://purl.bdrc.io/resource/PR1ER1), as well as some transcriptions by [MonlamAI](https://monlam.ai/) and the author. The data was organized and processed in collaboration with MonlamAI, and parts of it can be made available on request.
+The models it uses are based on transcriptions available online, from BDRC, [ALL](https://asianlegacylibrary.org/), [Adarsha](https://adarshah.org/), and [NorbuKetaka](http://purl.bdrc.io/resource/PR1ER1), as well as transcriptions made during the project.
 
-See our [Huggingface account](https://huggingface.co/BDRC) for the open access part of our data as well as the models, and the following for the training code:
+See the Huggingface accounts of [BDRC](https://huggingface.co/BDRC) and [OpenPecha](https://huggingface.co/openpecha) for the open access part of our data as well as the models, and the following for the training code:
 
 - https://github.com/buda-base/tibetan-ocr-training
 - https://github.com/buda-base/tibetan-ocr-evaluation
@@ -91,4 +91,4 @@ pip install -r requirements.txt
 
 ### Acknowledgements
 
-Our gratitude goes to Jérémy Frère for the OSX packaging.
+Our gratitude goes to Jérémy Frère for the OSX packaging and Pentsok W. Rtsang for the translations into Tibetan.
