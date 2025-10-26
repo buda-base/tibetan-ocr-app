@@ -1,6 +1,6 @@
-# BDRC-MonlamAI Tibetan OCR desktop app
+# BDRC Tibetan OCR desktop app
 
-This app is a free and open source desktop app that can be installed on a local compter to run Tibetan OCR on batches of images (including in PDFs). It was developed by Eric Werner for the [Buddhist Digital Resource Center](https://www.bdrc.io) and uses the pipeline developed during the BDRC-MonlamAI OCR Project.
+This app is a free and open source desktop app that can be installed on a local compter to run Tibetan OCR on batches of images (including in PDFs). It was developed by Eric Werner for the [Buddhist Digital Resource Center](https://www.bdrc.io) and uses the pipeline developed during the BDRC OCR Project.
 
 ### Main features
 
