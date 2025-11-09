@@ -137,7 +137,11 @@ class ExportDialog(QDialog):
             color: #ffffff;
 
             QLabel {
-                color: #000000;
+                color: #ffffff;
+            }
+
+            QCheckBox {
+                color: #ffffff;
             }
             """
         )
