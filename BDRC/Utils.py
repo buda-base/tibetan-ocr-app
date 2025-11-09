@@ -241,35 +241,64 @@ def read_theme_file(file_path: str) -> dict | None:
 
 def import_local_models(model_path: str):
     """
-    Import all OCR models from a directory.
-    
+    Import all OCR models from a directory, searching recursively.
+
+    Supports both:
+    - Direct model directories (with model_config.json)
+    - Parent directories containing model subdirectories
+    - Nested directory structures
+
     Args:
         model_path: Directory path containing OCR model subdirectories
-        
+
     Returns:
         List of OCRModel instances loaded from the directory
     """
     tick = 1
     ocr_models = []
 
-    if os.path.isdir(model_path):
-        for sub_dir in Path(model_path).iterdir():
-            if os.path.isdir(sub_dir):
-                _config_file = os.path.join(sub_dir, "model_config.json")
-                if not os.path.isfile(_config_file):
-                    logging.warn("ignore "+str(sub_dir))
-                    tick += 1
-                    continue
+    def find_model_dirs(search_path):
+        """Recursively find all directories containing model_config.json"""
+        model_dirs = []
 
-                _config = read_ocr_model_config(_config_file)
-                _model = OCRModel(
-                    guid=generate_guid(tick),
-                    name=sub_dir.name,
-                    path=str(sub_dir),
-                    config=_config
-                )
-                ocr_models.append(_model)
+        # Check if the current directory is itself a model directory
+        config_file = os.path.join(search_path, "model_config.json")
+        if os.path.isfile(config_file):
+            model_dirs.append(search_path)
+            return model_dirs
+
+        # Otherwise, search subdirectories recursively
+        if os.path.isdir(search_path):
+            try:
+                for entry in Path(search_path).iterdir():
+                    if entry.is_dir():
+                        model_dirs.extend(find_model_dirs(str(entry)))
+            except PermissionError:
+                logging.warning(f"Permission denied accessing: {search_path}")
+
+        return model_dirs
+
+    # Find all model directories
+    model_dirs = find_model_dirs(model_path)
+
+    # Import each model
+    for model_dir in model_dirs:
+        try:
+            config_file = os.path.join(model_dir, "model_config.json")
+            _config = read_ocr_model_config(config_file)
+            _model = OCRModel(
+                guid=generate_guid(tick),
+                name=Path(model_dir).name,
+                path=str(model_dir),
+                config=_config
+            )
+            ocr_models.append(_model)
+            logging.info(f"Imported model: {_model.name} from {model_dir}")
             tick += 1
+        except Exception as e:
+            logging.warning(f"Failed to import model from {model_dir}: {e}")
+            tick += 1
+            continue
 
     return ocr_models
 

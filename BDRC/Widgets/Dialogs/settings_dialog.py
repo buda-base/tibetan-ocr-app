@@ -397,25 +397,54 @@ class SettingsDialog(QDialog):
         file_dialog.setFileMode(QFileDialog.Directory)
         file_dialog.setOption(QFileDialog.ShowDirsOnly, True)
         file_dialog.setWindowTitle(tr("Select Model Directory"))
-        
+
         if file_dialog.exec():
             selected_dir = file_dialog.selectedFiles()[0]
             if os.path.isdir(selected_dir):
                 try:
-                    # Import models from the selected directory
+                    # Import models from the selected directory (searches recursively)
                     imported_models = import_local_models(selected_dir)
-                    
+
+                    if not imported_models:
+                        info_dialog = QMessageBox()
+                        info_dialog.setWindowTitle("No Models Found")
+                        info_dialog.setText(f"No valid OCR models found in {selected_dir}\n\nMake sure each model directory contains a 'model_config.json' file.")
+                        info_dialog.setIcon(QMessageBox.Information)
+                        info_dialog.exec()
+                        return
+
+                    # Merge new models with existing ones (additive import)
+                    # Check for duplicates by path
+                    existing_paths = {model.path for model in self.ocr_models}
+                    new_models = [model for model in imported_models if model.path not in existing_paths]
+
+                    if not new_models:
+                        info_dialog = QMessageBox()
+                        info_dialog.setWindowTitle("Models Already Imported")
+                        info_dialog.setText(f"All models from {selected_dir} are already imported.")
+                        info_dialog.setIcon(QMessageBox.Information)
+                        info_dialog.exec()
+                        return
+
                     # Confirm with the user
                     confirm_dialog = QMessageBox()
                     confirm_dialog.setWindowTitle(tr("Confirm Model Import"))
-                    confirm_dialog.setText(tr("Do you want to import the selected models? Existing models will be replaced."))
+                    confirm_dialog.setText(tr(f"Found {len(new_models)} new model(s) to import.\n\nNew models will be added to your existing models (not replaced)."))
                     confirm_dialog.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-                    confirm_dialog.setDefaultButton(QMessageBox.No)
-                    
+                    confirm_dialog.setDefaultButton(QMessageBox.Yes)
+
                     if confirm_dialog.exec() == QMessageBox.Yes:
-                        self.ocr_models = imported_models
+                        # Add new models to existing list (additive)
+                        self.ocr_models.extend(new_models)
                         self.update_model_table(self.ocr_models)
-                        
+
+                        # Show success message
+                        success_dialog = QMessageBox()
+                        success_dialog.setWindowTitle("Import Successful")
+                        success_dialog.setText(f"Successfully imported {len(new_models)} model(s).")
+                        success_dialog.setIcon(QMessageBox.Information)
+                        success_dialog.exec()
+
                 except Exception as e:
                     # Show error dialog
                     error_dialog = QMessageBox()
@@ -423,7 +452,7 @@ class SettingsDialog(QDialog):
                     error_dialog.setText(f"Importing Models Failed: {e}")
                     error_dialog.setIcon(QMessageBox.Critical)
                     error_dialog.exec()
-                
+
                 # Save the selected directory to app settings
                 self.app_settings.model_path = selected_dir
 
