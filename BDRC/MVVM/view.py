@@ -5,9 +5,9 @@ import platform
 import os
 from uuid import UUID
 from typing import Dict, List
-from PySide6.QtCore import Signal, Qt, QThreadPool, QThread
+from PySide6.QtCore import Signal, Qt, QThreadPool, QThread, QUrl
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QSplitter, QLabel, QMessageBox, QFileDialog, QProgressDialog, QApplication, QToolTip
-from PySide6.QtGui import QMovie, QClipboard
+from PySide6.QtGui import QMovie, QClipboard, QDragEnterEvent, QDropEvent
 from pdf2image import convert_from_path, pdfinfo_from_path
 from BDRC.Styles import DARK
 from BDRC.Inference import OCRPipeline
@@ -263,7 +263,92 @@ class AppView(QWidget):
         # Memoized poppler path
         self._poppler_path = None
 
+        # Enable drag and drop
+        self.setAcceptDrops(True)
+
         self.show()
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        """
+        Handle drag enter event to accept file drops.
+
+        Args:
+            event: The drag enter event
+        """
+        if event.mimeData().hasUrls():
+            # Check if any of the URLs are valid image or PDF files
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                if file_path:
+                    ext = os.path.splitext(file_path)[1].lower()
+                    if ext in ['.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff', '.pdf']:
+                        event.acceptProposedAction()
+                        return
+        event.ignore()
+
+    def dropEvent(self, event: QDropEvent):
+        """
+        Handle drop event to import dropped files.
+
+        Args:
+            event: The drop event
+        """
+        import uuid
+
+        files = []
+        for url in event.mimeData().urls():
+            file_path = url.toLocalFile()
+            if file_path and os.path.isfile(file_path):
+                ext = os.path.splitext(file_path)[1].lower()
+                if ext in ['.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff', '.pdf']:
+                    files.append(file_path)
+
+        if not files:
+            return
+
+        # Create a temporary directory for imported files
+        import_dir = os.path.join(os.path.expanduser("~"), ".bdrc_ocr", "imports")
+        create_dir(import_dir)
+
+        try:
+            results = {}
+
+            for file_path in files:
+                file_extension = os.path.splitext(file_path)[1].lower()
+
+                if file_extension == '.pdf':
+                    # Show PDF import options dialog
+                    pdf_dialog = PDFImportDialog(self)
+                    if pdf_dialog.exec():
+                        import_method = pdf_dialog.get_selected_method()
+
+                        # Create a unique directory for this PDF
+                        pdf_dir = os.path.join(import_dir, str(uuid.uuid4()))
+                        create_dir(pdf_dir)
+
+                        if import_method == PDFImportDialog.IMPORT_EMBEDDED_IMAGES:
+                            # Extract embedded images using pypdf
+                            self.handle_pdf_extract(file_path, pdf_dir, results)
+                        else:
+                            # Convert pages to images using pdf2image
+                            self.convert_pdf_to_images(file_path, pdf_dir, results)
+                else:
+                    # Handle regular image files
+                    file_id = uuid.uuid4()
+                    file_name = get_filename(file_path)
+
+                    data = build_ocr_data(file_id, file_path)
+                    results[file_id] = data
+
+            if results:
+                self.import_files(results)
+
+            event.acceptProposedAction()
+
+        except Exception as e:
+            error_dialog = NotificationDialog("Error", f"An error occurred while importing files: {e}")
+            error_dialog.exec_()
+            event.ignore()
 
     def handle_file_import(self):
         import uuid
