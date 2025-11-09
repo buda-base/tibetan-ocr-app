@@ -41,6 +41,7 @@ This app has packages for MacOS X on both Intel (x64) processors and Silicon/ARM
 2. Clone the Github repository: `git clone https://github.com/buda-base/tibetan-ocr-app.git`
 3. Run `git lfs pull` to download all LFS files
 4. Install dependencies with `pip install -r requirements.txt` (requires at least Python 3.10)
+   - Alternatively, use `uv sync` if you have [uv](https://github.com/astral-sh/uv) installed
 5. Install Poppler with `python scripts/install_poppler.py`
 6. Run `pyside6-rcc resources.qrc -o resources.py`
 7. Download the OCR models with `curl -L https://github.com/buda-base/tibetan-ocr-app/releases/download/v0.1/bdrc_ocr_models_1.0.zip`
