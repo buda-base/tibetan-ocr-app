@@ -297,19 +297,35 @@ class PageXMLExporter(Exporter):
 class TextExporter(Exporter):
     """
     Simple text file exporter for OCR results.
-    
+
     Exports recognized text as plain text files with one line per text line.
     """
-    
+
     def __init__(self, output_dir: str) -> None:
         """
         Initialize text exporter.
-        
+
         Args:
             output_dir: Directory path for exported text files
         """
         super().__init__(output_dir)
         logging.info("Init Text Exporter")
+
+    @staticmethod
+    def remove_empty_lines(lines: List[OCRLine]) -> List[OCRLine]:
+        """
+        Remove trailing empty lines from OCR output.
+
+        Args:
+            lines: List of OCR text lines
+
+        Returns:
+            List with trailing empty lines removed
+        """
+        # Remove trailing empty lines
+        while lines and not lines[-1].text.strip():
+            lines.pop()
+        return lines
 
     def export_lines(
             self,
@@ -322,7 +338,7 @@ class TextExporter(Exporter):
             angle: float = 0.0):
         """
         Export OCR results to plain text file.
-        
+
         Args:
             image: Source image (not used for text export)
             image_name: Base name for output file
@@ -332,6 +348,8 @@ class TextExporter(Exporter):
             bbox: Bounding box flag (not used for text export)
             angle: Rotation angle (not used for text export)
         """
+        # Remove trailing empty lines before export
+        text_lines = self.remove_empty_lines(text_lines.copy())
 
         out_file = f"{self.output_dir}/{image_name}.txt"
 
@@ -342,11 +360,14 @@ class TextExporter(Exporter):
     def export_text(self, image_name: str, lines: List[OCRLine]):
         """
         Export text lines to a plain text file.
-        
+
         Args:
             image_name: Base name for output file
             lines: List of OCR text lines to export
         """
+        # Remove trailing empty lines before export
+        lines = self.remove_empty_lines(lines.copy())
+
         out_file = f"{self.output_dir}/{image_name}.txt"
 
         with open(out_file, "w", encoding="UTF-8") as f:
