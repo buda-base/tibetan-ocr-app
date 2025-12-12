@@ -176,3 +176,4 @@ Models
 OCRModels
 download_models.py
 poppler*/
+output/

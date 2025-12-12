@@ -1,49 +1,25 @@
+from dataclasses import dataclass
+from typing import List, Optional, Tuple, Union
+
 import cv2
-import pyewts
 import numpy as np
 import numpy.typing as npt
 import onnxruntime as ort
-from typing import List, Union
-
-
-from scipy.special import softmax
-from Config import COLOR_DICT, CHARSETENCODER
-from BDRC.Data import (
-    OCRLine,
-    OpStatus,
-    TPSMode,
-    Encoding,
-    OCRModelConfig,
-    LineDetectionConfig,
-    LayoutDetectionConfig, Platform, CharsetEncoder
-)
-
+import pyewts
 from pyctcdecode import build_ctcdecoder
-from BDRC.line_detection import (
-    build_line_data,
-    extract_line_images,
-    optimize_countour,
-    sort_lines_by_threshold2,
-    build_raw_line_data,
-    filter_line_contours
-)
+from scipy.special import softmax
 
-from BDRC.image_dewarping import (
-    apply_global_tps,
-    check_for_tps
-)
-
-from BDRC.Utils import (
-    preprocess_image,
-    binarize,
-    normalize,
-    stitch_predictions,
-    tile_image,
-    sigmoid,
-    pad_to_height,
-    pad_to_width,
-    get_execution_providers
-)
+from BDRC.Data import (CharsetEncoder, Encoding, LayoutDetectionConfig,
+                       LineDetectionConfig, OCRLine, OCRModelConfig, OpStatus,
+                       Platform, TPSMode)
+from BDRC.image_dewarping import apply_global_tps, check_for_tps
+from BDRC.line_detection import (build_line_data, build_raw_line_data,
+                                 extract_line_images, filter_line_contours,
+                                 optimize_countour, sort_lines_by_threshold2)
+from BDRC.Utils import (binarize, get_execution_providers, normalize,
+                        pad_to_height, pad_to_width, preprocess_image, sigmoid,
+                        stitch_predictions, tile_image)
+from Config import CHARSETENCODER, COLOR_DICT
 
 
 class CTCDecoder:
@@ -331,6 +307,19 @@ class OCRInference:
         return text
 
 
+@dataclass
+class DewarpingResult:
+    """Result from dewarping stage."""
+    work_img: npt.NDArray
+    work_mask: npt.NDArray
+    filtered_contours: List
+    page_angle: float
+    applied: bool
+    tps_ratio: Optional[float] = None
+    dewarped_img: Optional[npt.NDArray] = None
+    dewarped_mask: Optional[npt.NDArray] = None
+
+
 class OCRPipeline:
     """
     Note: The handling of line model vs. layout model is kind of provisional here and totally depends on the way you want to run this.
@@ -375,6 +364,127 @@ class OCRPipeline:
         else:
             return
 
+    # ==================== Stage Methods ====================
+    # These methods break down the OCR pipeline into discrete stages
+    # that can be called individually or composed together.
+
+    def detect_lines(self, image: npt.NDArray) -> Tuple[OpStatus, npt.NDArray | str]:
+        """Stage 1: Run line/layout detection to get line mask.
+
+        Returns:
+            (OpStatus.SUCCESS, line_mask) or (OpStatus.FAILED, error_message)
+        """
+        if isinstance(self.line_config, LineDetectionConfig):
+            line_mask = self.line_inference.predict(image)
+        else:
+            layout_mask = self.line_inference.predict(image)
+            line_mask = layout_mask[:, :, 2]
+        return OpStatus.SUCCESS, line_mask
+
+    def build_lines(self, image: npt.NDArray, line_mask: npt.NDArray
+                    ) -> Tuple[OpStatus, Tuple[npt.NDArray, npt.NDArray, List, List, float] | str]:
+        """Stage 2: Build and filter line contours from mask.
+
+        Returns:
+            (OpStatus.SUCCESS, (rot_img, rot_mask, raw_contours, filtered_contours, page_angle))
+            or (OpStatus.FAILED, error_message)
+        """
+        rot_img, rot_mask, line_contours, page_angle = build_raw_line_data(image, line_mask)
+        if len(line_contours) == 0:
+            return OpStatus.FAILED, "No lines detected"
+
+        filtered_contours = filter_line_contours(rot_mask, line_contours)
+        if len(filtered_contours) == 0:
+            return OpStatus.FAILED, "No valid lines after filtering"
+
+        return OpStatus.SUCCESS, (rot_img, rot_mask, line_contours, filtered_contours, page_angle)
+
+    def apply_dewarping(
+        self, rot_img: npt.NDArray, rot_mask: npt.NDArray,
+        filtered_contours: List, page_angle: float,
+        use_tps: bool = False, tps_threshold: float = 0.25
+    ) -> Tuple[OpStatus, DewarpingResult | str]:
+        """Stage 3: Optionally apply TPS dewarping.
+
+        Returns:
+            (OpStatus.SUCCESS, DewarpingResult) or (OpStatus.FAILED, error_message)
+        """
+        if not use_tps:
+            return OpStatus.SUCCESS, DewarpingResult(
+                work_img=rot_img, work_mask=rot_mask,
+                filtered_contours=filtered_contours, page_angle=page_angle,
+                applied=False
+            )
+
+        ratio, tps_line_data = check_for_tps(rot_img, filtered_contours)
+        if ratio <= tps_threshold:
+            return OpStatus.SUCCESS, DewarpingResult(
+                work_img=rot_img, work_mask=rot_mask,
+                filtered_contours=filtered_contours, page_angle=page_angle,
+                applied=False, tps_ratio=ratio
+            )
+
+        # Apply dewarping
+        dewarped_img, dewarped_mask = apply_global_tps(rot_img, rot_mask, tps_line_data)
+        if len(dewarped_mask.shape) == 3:
+            dewarped_mask = cv2.cvtColor(dewarped_mask, cv2.COLOR_RGB2GRAY)
+
+        # Rebuild line data from dewarped image
+        dew_rot_img, dew_rot_mask, line_contours, new_page_angle = build_raw_line_data(dewarped_img, dewarped_mask)
+        new_filtered_contours = filter_line_contours(dew_rot_mask, line_contours)
+
+        return OpStatus.SUCCESS, DewarpingResult(
+            work_img=dew_rot_img, work_mask=dew_rot_mask,
+            filtered_contours=new_filtered_contours, page_angle=new_page_angle,
+            applied=True, tps_ratio=ratio,
+            dewarped_img=dewarped_img, dewarped_mask=dewarped_mask
+        )
+
+    def extract_lines(
+        self, work_img: npt.NDArray, rot_mask: npt.NDArray,
+        filtered_contours: List, merge_lines: bool = True,
+        k_factor: float = 2.5, bbox_tolerance: float = 4.0
+    ) -> Tuple[OpStatus, Tuple[List, List] | str]:
+        """Stage 4: Build line data, sort lines, and extract line images.
+
+        Returns:
+            (OpStatus.SUCCESS, (sorted_lines, line_images)) or (OpStatus.FAILED, error_message)
+        """
+        line_data = [build_line_data(x) for x in filtered_contours]
+        sorted_lines, _ = sort_lines_by_threshold2(rot_mask, line_data, group_lines=merge_lines)
+        line_images = extract_line_images(work_img, sorted_lines, k_factor, bbox_tolerance)
+
+        if not line_images:
+            return OpStatus.FAILED, "No valid line images extracted"
+
+        return OpStatus.SUCCESS, (sorted_lines, line_images)
+
+    def run_text_recognition(
+        self, line_images: List, sorted_lines: List,
+        target_encoding: Encoding = Encoding.Unicode
+    ) -> Tuple[OpStatus, List[OCRLine] | str]:
+        """Stage 5: Run OCR inference on line images.
+
+        Returns:
+            (OpStatus.SUCCESS, ocr_lines) or (OpStatus.FAILED, error_message)
+        """
+        ocr_lines = []
+        for line_img, line_info in zip(line_images, sorted_lines):
+            pred = self.ocr_inference.run(line_img).strip().replace("§", " ")
+
+            if self.encoder == CharsetEncoder.Wylie and target_encoding == Encoding.Unicode:
+                pred = self.converter.toUnicode(pred)
+            elif self.encoder == CharsetEncoder.Stack and target_encoding == Encoding.Wylie:
+                pred = self.converter.toWylie(pred)
+
+            ocr_lines.append(OCRLine(
+                guid=line_info.guid, text=pred,
+                encoding=Encoding.Wylie if target_encoding == Encoding.Wylie else Encoding.Unicode
+            ))
+
+        return OpStatus.SUCCESS, ocr_lines
+
+    # ==================== Main Pipeline Method ====================
 
     # TODO: Generate specific meaningful error codes that can be returned inbetween the steps
     # TPS Mode is global-only at the moment
@@ -391,84 +501,63 @@ class OCRPipeline:
         try:
             if not self.ready:
                 return OpStatus.FAILED, "OCR pipeline not ready"
-
             if image is None:
                 return OpStatus.FAILED, "Input image is None"
 
-            # Get line mask
+            # Stage 1: Line detection
             try:
-                if isinstance(self.line_config, LineDetectionConfig):
-                    line_mask = self.line_inference.predict(image)
-                else:
-                    layout_mask = self.line_inference.predict(image)
-                    line_mask = layout_mask[:, :, 2]
+                status, result = self.detect_lines(image)
+                if status == OpStatus.FAILED:
+                    return status, result
+                line_mask = result
             except Exception as e:
                 return OpStatus.FAILED, f"Line detection failed: {str(e)}"
 
-            # Build line data
+            # Stage 2: Build lines
             try:
-                rot_img, rot_mask, line_contours, page_angle = build_raw_line_data(image, line_mask)
-                if len(line_contours) == 0:
-                    return OpStatus.FAILED, "No lines detected"
+                status, result = self.build_lines(image, line_mask)
+                if status == OpStatus.FAILED:
+                    return status, result
+                rot_img, rot_mask, _, filtered_contours, page_angle = result
             except Exception as e:
                 return OpStatus.FAILED, f"Line data building failed: {str(e)}"
 
-            # Filter contours
-            filtered_contours = filter_line_contours(rot_mask, line_contours)
-            if len(filtered_contours) == 0:
-                return OpStatus.FAILED, "No valid lines after filtering"
-
-            # Handle TPS (dewarping)
+            # Stage 3: Dewarping
             try:
-                if use_tps:
-                    ratio, tps_line_data = check_for_tps(rot_img, filtered_contours)
-                    if ratio > tps_threshold:
-                        dewarped_img, dewarped_mask = apply_global_tps(rot_img, rot_mask, tps_line_data)
-                        if len(dewarped_mask.shape) == 3:
-                            dewarped_mask = cv2.cvtColor(dewarped_mask, cv2.COLOR_RGB2GRAY)
-                        dew_rot_img, dew_rot_mask, line_contours, page_angle = build_raw_line_data(dewarped_img, dewarped_mask)
-                        filtered_contours = filter_line_contours(dew_rot_mask, line_contours)
-                        line_data = [build_line_data(x) for x in filtered_contours]
-                        sorted_lines, _ = sort_lines_by_threshold2(rot_mask, line_data, group_lines=merge_lines)
-                        line_images = extract_line_images(dew_rot_img, sorted_lines, k_factor, bbox_tolerance)
-                    else:
-                        line_data = [build_line_data(x) for x in filtered_contours]
-                        sorted_lines, _ = sort_lines_by_threshold2(rot_mask, line_data, group_lines=merge_lines)
-                        line_images = extract_line_images(rot_img, sorted_lines, k_factor, bbox_tolerance)
-                else:
-                    line_data = [build_line_data(x) for x in filtered_contours]
-                    sorted_lines, _ = sort_lines_by_threshold2(rot_mask, line_data, group_lines=merge_lines)
-                    line_images = extract_line_images(rot_img, sorted_lines, k_factor, bbox_tolerance)
+                status, result = self.apply_dewarping(
+                    rot_img, rot_mask, filtered_contours, page_angle,
+                    use_tps=use_tps, tps_threshold=tps_threshold
+                )
+                if status == OpStatus.FAILED:
+                    return status, result
+                dewarp_result = result
             except Exception as e:
                 return OpStatus.FAILED, f"Line processing failed: {str(e)}"
 
-            # Process each line
-            if line_images is not None and len(line_images) > 0:
-                page_text = []
-                ocr_lines = []
-                try:
-                    for line_img, line_info in zip(line_images, sorted_lines):
-                        pred = self.ocr_inference.run(line_img)
-                        pred = pred.strip()
-                        pred = pred.replace("§", " ")
+            # Stage 4: Extract lines
+            try:
+                status, result = self.extract_lines(
+                    dewarp_result.work_img, rot_mask, dewarp_result.filtered_contours,
+                    merge_lines=merge_lines, k_factor=k_factor, bbox_tolerance=bbox_tolerance
+                )
+                if status == OpStatus.FAILED:
+                    return status, result
+                sorted_lines, line_images = result
+            except Exception as e:
+                return OpStatus.FAILED, f"Line extraction failed: {str(e)}"
 
-                        if self.encoder == CharsetEncoder.Wylie and target_encoding == Encoding.Unicode:
-                            pred = self.converter.toUnicode(pred)
-                        elif self.encoder == CharsetEncoder.Stack and target_encoding == Encoding.Wylie:
-                            pred = self.converter.toWylie(pred)
+            # Stage 5: OCR inference
+            try:
+                status, result = self.run_text_recognition(
+                    line_images, sorted_lines, target_encoding=target_encoding
+                )
+                if status == OpStatus.FAILED:
+                    return status, result
+                ocr_lines = result
+            except Exception as e:
+                return OpStatus.FAILED, f"OCR processing failed: {str(e)}"
 
-                        ocr_line = OCRLine(
-                            guid=line_info.guid,
-                            text=pred,
-                            encoding=Encoding.Wylie if target_encoding == Encoding.Wylie else Encoding.Unicode
-                        )
-                        ocr_lines.append(ocr_line)
-                        page_text.append(pred)
+            return OpStatus.SUCCESS, (rot_mask, sorted_lines, ocr_lines, page_angle)
 
-                    return OpStatus.SUCCESS, (rot_mask, sorted_lines, ocr_lines, page_angle)
-                except Exception as e:
-                    return OpStatus.FAILED, f"OCR processing failed: {str(e)}"
-            else:
-                return OpStatus.FAILED, "No valid line images extracted"
         except Exception as e:
             return OpStatus.FAILED, f"OCR pipeline failed: {str(e)}"

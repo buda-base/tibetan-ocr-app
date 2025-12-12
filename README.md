@@ -47,6 +47,96 @@ This app has packages for MacOS X on both Intel (x64) processors and Silicon/ARM
 8. Extract the OCR models ZIP archive into a new `OCRModels` directory.
 9. Run `python main.py`
 
+### Command-line usage (advanced users)
+
+In addition to the desktop UI, you can run OCR from the command line:
+
+```
+python cli.py --model <MODEL_DIR> --image <IMAGE_PATH> --output <OUT_DIR>
+```
+
+You must provide either `--image` (single file) or `--folder` (batch mode).
+
+#### Examples
+
+Single image, Unicode output:
+
+```
+python cli.py \
+  --model OCRModels/Woodblock \
+  --image /path/to/page.jpg \
+  --output output
+```
+
+Batch folder, Wylie output, layout mode + dewarping:
+
+```
+python cli.py \
+  --model OCRModels/Woodblock \
+  --folder /path/to/pages \
+  --output output \
+  --encoding wylie \
+  --line-mode layout \
+  --dewarp
+```
+
+Batch folder with artifact saving (standard granularity):
+
+```
+python cli.py \
+  --model OCRModels/Woodblock \
+  --folder /path/to/pages \
+  --output output \
+  --save-artifacts \
+  --artifact-output output \
+  --artifact-granularity standard
+```
+
+#### CLI arguments
+
+- **`--model`**
+  Path to a model directory containing `model_config.json`.
+- **`--image`**
+  Path to a single image.
+- **`--folder`**
+  Path to a folder containing images. The CLI will scan for: `jpg`, `jpeg`, `png`, `tif`, `tiff`.
+- **`--output`**
+  Output directory for OCR results.
+- **`--encoding`**
+  Output encoding:
+  - `unicode` (default)
+  - `wylie`
+- **`--k-factor`**
+  Line extraction k-factor (default: `2.5`).
+- **`--bbox-tolerance`**
+  Bounding box tolerance (default: `4.0`).
+- **`--merge-lines`**
+  Merge line chunks.
+- **`--dewarp`**
+  Apply TPS dewarping (optional).
+- **`--line-mode`**
+  Line detection mode:
+  - `line` (default)
+  - `layout`
+- **`--save-artifacts`**
+  Enable artifact saving.
+- **`--artifact-output`**
+  Base directory for artifacts (default: `output`).
+- **`--artifact-granularity`**
+  Artifact detail level:
+  - `minimal`
+  - `standard` (default)
+
+#### Artifacts and audit logs
+
+When `--save-artifacts` is enabled:
+
+- Artifacts are written under `--artifact-output` using a generated job directory.
+- If `--artifact-granularity standard` is selected, an audit log is also generated at:
+  - `<job_dir>/audit.log`
+
+If artifacts are not enabled (or granularity is `minimal`), the CLI runs normally and does not write an audit log.
+
 ### OCR Models
 
 The application comes with pre-installed OCR models that are ready to use. These models are automatically loaded when you start the application.

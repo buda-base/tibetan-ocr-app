@@ -1,22 +1,25 @@
-import os
-import sys
 import argparse
 import glob
-import cv2
-from BDRC.Utils import import_local_model, get_platform
-from BDRC.Data import Encoding, LineMode, OCRSettings
-from BDRC.Inference import OCRPipeline
-from BDRC.Data import LineDetectionConfig, LayoutDetectionConfig, OCRModelConfig
+import os
+import sys
 
-def find_model_config(model_dir):
-    config_path = os.path.join(model_dir, "model_config.json")
-    if not os.path.isfile(config_path):
-        raise FileNotFoundError(f"Model config not found in {model_dir}")
-    return config_path
+import cv2
+
+from BDRC.ArtifactManager import ArtifactManager
+from BDRC.AuditLogger import AuditLogger
+from BDRC.Data import (ArtifactConfig, Encoding, LayoutDetectionConfig,
+                       LineDetectionConfig)
+from BDRC.Exporter import TextExporter
+from BDRC.Inference import OCRPipeline
+from BDRC.PipelineWithArtifacts import run_ocr_with_artifacts
+from BDRC.Utils import get_platform, import_local_model
+
+IMAGE_EXTENSIONS = ("*.jpg", "*.jpeg", "*.png", "*.tif", "*.tiff")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Run Tibetan OCR inference on images.")
-    parser.add_argument("--model", required=True, help="Path to OCR model directory (must contain model_config.json)")
+    parser.add_argument("--model", required=True, help="Path to OCR model directory")
     parser.add_argument("--image", help="Path to a single image file")
     parser.add_argument("--folder", help="Path to a folder containing images")
     parser.add_argument("--output", required=True, help="Output directory for results")
@@ -26,65 +29,113 @@ def main():
     parser.add_argument("--merge-lines", action="store_true", help="Merge line chunks")
     parser.add_argument("--dewarp", action="store_true", help="Apply TPS dewarping")
     parser.add_argument("--line-mode", choices=["line", "layout"], default="line", help="Line detection mode")
+    parser.add_argument("--save-artifacts", action="store_true", help="Enable artifact saving")
+    parser.add_argument("--artifact-output", default="output", help="Base directory for artifacts")
+    parser.add_argument("--artifact-granularity", choices=["minimal", "standard"], default="standard",
+                        help="Level of artifact detail to save")
     args = parser.parse_args()
 
-    if not os.path.isdir(args.output):
-        os.makedirs(args.output)
+    if args.image and args.folder:
+        parser.error("--image and --folder cannot be used together.")
+    if not args.image and not args.folder:
+        parser.error("You must specify either --image or --folder.")
 
-    # Load model config
-    model_dir = args.model
-    config_path = find_model_config(model_dir)
-    ocr_model = import_local_model(os.path.dirname(model_dir))
+    os.makedirs(args.output, exist_ok=True)
 
-    # Select line detection config
+    # Load model
+    config_path = os.path.join(args.model, "model_config.json")
+    if not os.path.isfile(config_path):
+        raise FileNotFoundError(f"Model config not found: {config_path}")
+    ocr_model = import_local_model(os.path.dirname(args.model))
+
+    # Line detection config
     if args.line_mode == "line":
-        # Dummy config, you may want to allow this as argument
         line_config = LineDetectionConfig(model_file="Models/Lines/PhotiLines.onnx", patch_size=512)
     else:
-        # Dummy config, you may want to allow this as argument
-        line_config = LayoutDetectionConfig(model_file="Models/Layout/photi.onnx", patch_size=512, classes=["background", "image", "line", "caption", "margin"])
+        line_config = LayoutDetectionConfig(
+            model_file="Models/Layout/photi.onnx", patch_size=512,
+            classes=["background", "image", "line", "caption", "margin"])
 
-    platform = get_platform()
-    pipeline = OCRPipeline(platform, ocr_model.config, line_config)
+    pipeline = OCRPipeline(get_platform(), ocr_model.config, line_config)
+    target_encoding = Encoding.Unicode if args.encoding == "unicode" else Encoding.Wylie
 
-    # Prepare image list
-    if args.image:
-        image_paths = [args.image]
-    elif args.folder:
-        image_paths = []
-        for ext in ("*.jpg", "*.jpeg", "*.png", "*.tif", "*.tiff"):
-            image_paths.extend(glob.glob(os.path.join(args.folder, ext)))
+    # Collect images
+    is_batch_mode = bool(args.folder)
+    if args.folder:
+        image_paths = [p for ext in IMAGE_EXTENSIONS for p in glob.glob(os.path.join(args.folder, ext))]
         if not image_paths:
             print(f"No images found in {args.folder}")
             sys.exit(1)
     else:
-        print("You must specify either --image or --folder")
-        sys.exit(1)
+        image_paths = [args.image]
 
-    # Run inference
+    # Artifact setup
+    artifact_manager = None
+    audit_logger = None
+    artifact_config = None
+
+    if args.save_artifacts:
+        is_standard = args.artifact_granularity == "standard"
+        artifact_config = ArtifactConfig(
+            enabled=True, granularity=args.artifact_granularity,
+            save_detection=is_standard, save_dewarping=is_standard)
+
+        artifact_manager = ArtifactManager(
+            base_output_dir=args.artifact_output, job_id=None,
+            config={
+                "image_count": len(image_paths),
+                "image_paths": [os.path.basename(p) for p in image_paths],
+                "k_factor": args.k_factor, "bbox_tolerance": args.bbox_tolerance,
+                "merge_lines": args.merge_lines, "dewarp": args.dewarp,
+                "encoding": args.encoding, "line_mode": args.line_mode,
+                "artifact_granularity": args.artifact_granularity,
+            })
+        artifact_manager.create_directory_structure()
+        artifact_manager.save_config()
+
+        if is_standard:
+            audit_logger = AuditLogger(artifact_manager.job_id, artifact_manager.job_dir / "audit.log")
+
+    # Process images
     for img_path in image_paths:
         img = cv2.imread(img_path)
         if img is None:
             print(f"Failed to load image: {img_path}")
+            if audit_logger:
+                audit_logger.log_error(f"Failed to load image: {img_path}")
             continue
-        status, result = pipeline.run_ocr(
-            image=img,
-            k_factor=args.k_factor,
-            bbox_tolerance=args.bbox_tolerance,
-            merge_lines=args.merge_lines,
-            use_tps=args.dewarp,
-            target_encoding=Encoding.Unicode if args.encoding == "unicode" else Encoding.Wylie
-        )
+
+        page_name = os.path.basename(img_path)
+        base = os.path.splitext(page_name)[0]
+
+        if artifact_manager and is_batch_mode:
+            artifact_manager.set_current_page(page_name)
+
+        status, result = run_ocr_with_artifacts(
+            pipeline=pipeline, image=img, image_name=base,
+            k_factor=args.k_factor, bbox_tolerance=args.bbox_tolerance,
+            merge_lines=args.merge_lines, use_tps=args.dewarp, target_encoding=target_encoding,
+            artifact_manager=artifact_manager, audit_logger=audit_logger, artifact_config=artifact_config)
+
         if status.name == "SUCCESS":
-            rot_mask, lines, ocr_lines, angle = result
-            base = os.path.splitext(os.path.basename(img_path))[0]
-            out_txt = os.path.join(args.output, base + ".txt")
-            with open(out_txt, "w", encoding="utf-8") as f:
-                for line in ocr_lines:
-                    f.write(line.text + "\n")
-            print(f"OCR for {img_path} written to {out_txt}")
+            _, lines, ocr_lines, angle = result
+            if not artifact_manager:
+                TextExporter(args.output).export_lines(img, base, lines, ocr_lines, angle=angle)
+                print(f"Text output: {args.output}/{base}.txt")
         else:
             print(f"OCR failed for {img_path}: {result}")
+            if audit_logger:
+                audit_logger.log_error(f"Pipeline failed for {page_name}: {result}")
+
+    # Finalize
+    if artifact_manager:
+        if is_batch_mode:
+            artifact_manager.save_aggregate_metrics()
+        artifact_manager.generate_manifest()
+        print(f"Artifacts saved to: {artifact_manager.job_dir}")
+        if audit_logger:
+            print(f"Audit log available at: {artifact_manager.job_dir / 'audit.log'}")
+
 
 if __name__ == "__main__":
     main()

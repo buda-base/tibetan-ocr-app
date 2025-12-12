@@ -248,3 +248,13 @@ class AppSettings:
     language: Language
     encoding: Encoding
     theme: Theme
+
+
+@dataclass
+class ArtifactConfig:
+    """Configuration for artifact saving behavior."""
+
+    enabled: bool = True
+    granularity: str = "standard"  # "minimal", "standard"
+    save_detection: bool = True
+    save_dewarping: bool = True
