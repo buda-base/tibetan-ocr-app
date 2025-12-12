@@ -5,21 +5,24 @@ This module contains view model classes that serve as intermediaries between
 the models and views, handling UI interactions and data binding with Qt signals.
 """
 
+from typing import Dict, List
 from uuid import UUID
+
 import numpy.typing as npt
-from typing import List, Dict
 from PySide6.QtCore import QObject, Signal
+
+from BDRC.data import AppSettings, Line, OCRData, OCRLine, OCRLineUpdate, OCRModel, OCRSettings
 from BDRC.MVVM.model import OCRDataModel, SettingsModel
-from BDRC.Data import OCRData, Line, OCRLine, OCRLineUpdate, OCRModel, AppSettings, OCRSettings
 
 
 class SettingsViewModel(QObject):
     """
     View model for application and OCR settings management.
-    
+
     Handles settings-related UI interactions and provides signals for
     notifying the view of configuration changes.
     """
+
     s_app_settings_changed = Signal(AppSettings)
     s_ocr_settings_changed = Signal(OCRSettings)
     s_ocr_models_changed = Signal()
@@ -28,7 +31,7 @@ class SettingsViewModel(QObject):
     def __init__(self, model: SettingsModel):
         """
         Initialize the settings view model.
-        
+
         Args:
             model: SettingsModel instance to manage
         """
@@ -42,15 +45,15 @@ class SettingsViewModel(QObject):
     def get_execution_dir(self) -> str:
         """Get the application execution directory path."""
         return self._model.execution_directory
-    
+
     def get_default_font_path(self) -> str:
         """Get the path to the default font file."""
         return self._model.DEFAULT_FONT
-    
+
     def get_line_model(self):
         """Get the current line detection model configuration."""
         return self._model.get_line_model()
-    
+
     def get_ocr_models(self):
         """Get the list of available OCR models."""
         return self._model.ocr_models
@@ -58,6 +61,7 @@ class SettingsViewModel(QObject):
     def get_current_ocr_model(self) -> OCRModel | None:
         """Return the persisted OCRModel or fallback to first."""
         from PySide6.QtCore import QSettings
+
         if self._model.ocr_models:
             settings = QSettings("BDRC", "TibetanOCRApp")
             name = settings.value("main/model_name", None)
@@ -79,7 +83,7 @@ class SettingsViewModel(QObject):
     def update_ocr_settings(self, settings: OCRSettings):
         """
         Update OCR settings and emit change signal.
-        
+
         Args:
             settings: New OCR settings to apply
         """
@@ -89,7 +93,7 @@ class SettingsViewModel(QObject):
     def update_app_settings(self, settings: AppSettings):
         """
         Update application settings and emit change signal.
-        
+
         Args:
             settings: New application settings to apply
         """
@@ -99,7 +103,7 @@ class SettingsViewModel(QObject):
     def update_ocr_models(self, ocr_models: List[OCRModel]):
         """
         Update the list of available OCR models.
-        
+
         Args:
             ocr_models: New list of OCR models
         """
@@ -110,7 +114,7 @@ class SettingsViewModel(QObject):
     def select_ocr_model(self, ocr_model: OCRModel):
         """
         Select a specific OCR model and emit selection signal.
-        
+
         Args:
             ocr_model: OCR model to select
         """
@@ -119,7 +123,7 @@ class SettingsViewModel(QObject):
     def save_app_settings(self, settings: AppSettings):
         """
         Save application settings to file.
-        
+
         Args:
             settings: Application settings to save
         """
@@ -128,7 +132,7 @@ class SettingsViewModel(QObject):
     def save_ocr_settings(self, settings: OCRSettings):
         """
         Save OCR settings to file.
-        
+
         Args:
             settings: OCR settings to save
         """
@@ -138,14 +142,14 @@ class SettingsViewModel(QObject):
 class DataViewModel(QObject):
     """
     View model for managing OCR data and image processing results.
-    
+
     Handles OCR data interactions, manages data selection and updates,
     and provides signals for notifying the view of data changes.
-    
+
     Note: The dataAutoSelected Signal is a temporary workaround to handle the case of a data record being selected
     via the page switcher in the header, which focuses and scrolls to the respective image in the ImageGallery.
-    This is for time being a separate signal to avoid having a cycling signal when an image gets selected in the ImageGallery
-    via seleced_by_guid which would be focused afterwards as well - which is a weird behaviour
+    This is for time being a separate signal to avoid having a cycling signal when an image gets selected in the
+    ImageGallery via seleced_by_guid which would be focused afterwards as well - which is a weird behaviour
     """
 
     s_record_changed = Signal(OCRData)
@@ -153,7 +157,7 @@ class DataViewModel(QObject):
     s_data_selected = Signal(OCRData)
     s_data_changed = Signal(list)
     s_data_size_changed = Signal(list)
-    s_ocr_line_update = Signal(OCRData) # for TextView
+    s_ocr_line_update = Signal(OCRData)  # for TextView
 
     s_data_auto_selected = Signal(OCRData)
     s_data_cleared = Signal()
@@ -161,7 +165,7 @@ class DataViewModel(QObject):
     def __init__(self, model: OCRDataModel):
         """
         Initialize the data view model.
-        
+
         Args:
             model: OCRDataModel instance to manage
         """
@@ -171,10 +175,10 @@ class DataViewModel(QObject):
     def get_data_by_guid(self, guid: UUID) -> OCRData:
         """
         Retrieve OCR data for a specific image by its GUID.
-        
+
         Args:
             guid: Unique identifier for the image
-            
+
         Returns:
             OCRData instance for the specified image
         """
@@ -187,7 +191,7 @@ class DataViewModel(QObject):
     def add_data(self, data: Dict[UUID, OCRData]):
         """
         Add new OCR data and emit data change signals.
-        
+
         Args:
             data: Dictionary mapping GUIDs to OCRData instances
         """
@@ -200,7 +204,7 @@ class DataViewModel(QObject):
     def select_data_by_guid(self, uuid: UUID):
         """
         Select OCR data by GUID and emit selection signal.
-        
+
         Args:
             uuid: GUID of the image to select
         """
@@ -209,7 +213,7 @@ class DataViewModel(QObject):
     def delete_image_by_guid(self, guid: UUID):
         """
         Delete OCR data for a specific image and emit size change signal.
-        
+
         Args:
             guid: GUID of the image to delete
         """
@@ -219,10 +223,10 @@ class DataViewModel(QObject):
     def get_data_index(self, uuid: UUID):
         """
         Get the index position of OCR data by GUID.
-        
+
         Args:
             uuid: GUID to find index for
-            
+
         Returns:
             Index position in the data collection
         """
@@ -232,7 +236,7 @@ class DataViewModel(QObject):
     def select_data_by_index(self, index: int):
         """
         Select OCR data by index position (used by PageSwitcher).
-        
+
         Args:
             index: Index position to select
         """
@@ -243,7 +247,7 @@ class DataViewModel(QObject):
     def update_ocr_data(self, uuid: UUID, ocr_lines: List[OCRLine], silent: bool = False):
         """
         Update OCR text results for a specific image.
-        
+
         Args:
             uuid: GUID of the image to update
             ocr_lines: New OCR text lines
@@ -255,10 +259,12 @@ class DataViewModel(QObject):
             data = self.get_data_by_guid(uuid)
             self.s_record_changed.emit(data)
 
-    def update_page_data(self, uuid: UUID, lines: List[Line], preview_image: npt.NDArray, angle: float, silent: bool = False):
+    def update_page_data(
+        self, uuid: UUID, lines: List[Line], preview_image: npt.NDArray, angle: float, silent: bool = False
+    ):
         """
         Update line detection results for a specific image.
-        
+
         Args:
             uuid: GUID of the image to update
             lines: Detected text lines
@@ -275,7 +281,7 @@ class DataViewModel(QObject):
     def update_ocr_line(self, ocr_line_update: OCRLineUpdate):
         """
         Update a specific OCR text line and emit update signal.
-        
+
         Args:
             ocr_line_update: Update containing page GUID and modified OCR line
         """
@@ -285,7 +291,7 @@ class DataViewModel(QObject):
     def convert_wylie_unicode(self, page_guid: UUID):
         """
         Convert text encoding between Wylie and Unicode for a page.
-        
+
         Args:
             page_guid: GUID of the page to convert
         """

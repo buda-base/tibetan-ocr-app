@@ -5,11 +5,11 @@ from typing import Any, Optional, Tuple
 
 import numpy.typing as npt
 
-from BDRC.ArtifactManager import ArtifactManager
-from BDRC.AuditLogger import AuditLogger
-from BDRC.Data import ArtifactConfig, Encoding, Line, OpStatus
-from BDRC.Exporter import PageXMLExporter, TextExporter
-from BDRC.Inference import OCRPipeline
+from BDRC.artifact_manager import ArtifactManager
+from BDRC.audit_logger import AuditLogger
+from BDRC.data import ArtifactConfig, Encoding, Line, OpStatus
+from BDRC.exporter import PageXMLExporter, TextExporter
+from BDRC.inference import OCRPipeline
 
 
 def serialize_contours(contours) -> list:
@@ -17,15 +17,26 @@ def serialize_contours(contours) -> list:
 
 
 def serialize_lines(lines: list[Line]) -> list:
-    return [{"guid": str(ln.guid), "bbox": {"x": ln.bbox.x, "y": ln.bbox.y, "w": ln.bbox.w, "h": ln.bbox.h},
-             "center": ln.center} for ln in lines]
+    return [
+        {
+            "guid": str(ln.guid),
+            "bbox": {"x": ln.bbox.x, "y": ln.bbox.y, "w": ln.bbox.w, "h": ln.bbox.h},
+            "center": ln.center,
+        }
+        for ln in lines
+    ]
 
 
 def run_ocr_with_artifacts(
-    pipeline: OCRPipeline, image: npt.NDArray, image_name: str,
-    k_factor: float = 2.5, bbox_tolerance: float = 4.0, merge_lines: bool = True,
-    use_tps: bool = False, tps_threshold: float = 0.25,
-    target_encoding: Encoding = Encoding.Unicode,
+    pipeline: OCRPipeline,
+    image: npt.NDArray,
+    image_name: str,
+    k_factor: float = 2.5,
+    bbox_tolerance: float = 4.0,
+    merge_lines: bool = True,
+    use_tps: bool = False,
+    tps_threshold: float = 0.25,
+    target_encoding: Encoding = Encoding.UNICODE,
     artifact_manager: Optional[ArtifactManager] = None,
     audit_logger: Optional[AuditLogger] = None,
     artifact_config: Optional[ArtifactConfig] = None,
@@ -48,11 +59,18 @@ def run_ocr_with_artifacts(
         if audit_logger:
             audit_logger.log_error(msg, stage=stage)
 
-    log_start("ocr_pipeline", {
-        "image_name": image_name, "image_shape": image.shape,
-        "k_factor": k_factor, "bbox_tolerance": bbox_tolerance, "merge_lines": merge_lines,
-        "use_tps": use_tps, "target_encoding": str(target_encoding)
-    })
+    log_start(
+        "ocr_pipeline",
+        {
+            "image_name": image_name,
+            "image_shape": image.shape,
+            "k_factor": k_factor,
+            "bbox_tolerance": bbox_tolerance,
+            "merge_lines": merge_lines,
+            "use_tps": use_tps,
+            "target_encoding": str(target_encoding),
+        },
+    )
 
     if artifact_manager:
         artifact_manager.create_directory_structure()
@@ -78,31 +96,39 @@ def run_ocr_with_artifacts(
         rot_img, rot_mask, line_contours, filtered_contours, page_angle = result
         if save_det:
             artifact_manager.save_image("rotated_mask", rot_mask, "detection")
-            artifact_manager.save_json("contours_raw", {
-                "count": len(line_contours), "contours": serialize_contours(line_contours)
-            }, "detection")
-            artifact_manager.save_json("contours_filtered", {
-                "count": len(filtered_contours), "contours": serialize_contours(filtered_contours)
-            }, "detection")
-        log_end("build_line_data", {
-            "rotation_angle": page_angle, "contour_count": len(line_contours),
-            "filtered_count": len(filtered_contours)
-        })
+            artifact_manager.save_json(
+                "contours_raw",
+                {"count": len(line_contours), "contours": serialize_contours(line_contours)},
+                "detection",
+            )
+            artifact_manager.save_json(
+                "contours_filtered",
+                {"count": len(filtered_contours), "contours": serialize_contours(filtered_contours)},
+                "detection",
+            )
+        log_end(
+            "build_line_data",
+            {
+                "rotation_angle": page_angle,
+                "contour_count": len(line_contours),
+                "filtered_count": len(filtered_contours),
+            },
+        )
 
         # STAGE 3: TPS Dewarping
         log_start("dewarping")
         status, dewarp_result = pipeline.apply_dewarping(
-            rot_img, rot_mask, filtered_contours, page_angle,
-            use_tps=use_tps, tps_threshold=tps_threshold
+            rot_img, rot_mask, filtered_contours, page_angle, use_tps=use_tps, tps_threshold=tps_threshold
         )
         if status == OpStatus.FAILED:
             log_err(dewarp_result, "dewarping")
             return status, dewarp_result
         if save_dew and dewarp_result.tps_ratio is not None:
-            artifact_manager.save_json("tps_analysis", {
-                "ratio": float(dewarp_result.tps_ratio),
-                "threshold": tps_threshold, "applied": dewarp_result.applied
-            }, "dewarping")
+            artifact_manager.save_json(
+                "tps_analysis",
+                {"ratio": float(dewarp_result.tps_ratio), "threshold": tps_threshold, "applied": dewarp_result.applied},
+                "dewarping",
+            )
             if dewarp_result.applied and dewarp_result.dewarped_mask is not None:
                 artifact_manager.save_image("dewarped_mask", dewarp_result.dewarped_mask, "dewarping")
         log_end("dewarping", {"tps_ratio": dewarp_result.tps_ratio, "dewarping_applied": dewarp_result.applied})
@@ -110,17 +136,21 @@ def run_ocr_with_artifacts(
         # STAGE 4: Extract Lines
         log_start("extract_lines")
         status, result = pipeline.extract_lines(
-            dewarp_result.work_img, rot_mask, dewarp_result.filtered_contours,
-            merge_lines=merge_lines, k_factor=k_factor, bbox_tolerance=bbox_tolerance
+            dewarp_result.work_img,
+            rot_mask,
+            dewarp_result.filtered_contours,
+            merge_lines=merge_lines,
+            k_factor=k_factor,
+            bbox_tolerance=bbox_tolerance,
         )
         if status == OpStatus.FAILED:
             log_err(result, "extract_lines")
             return status, result
         sorted_lines, line_images = result
         if artifact_manager and artifact_config:
-            artifact_manager.save_json("lines", {
-                "count": len(sorted_lines), "lines": serialize_lines(sorted_lines)
-            }, "lines")
+            artifact_manager.save_json(
+                "lines", {"count": len(sorted_lines), "lines": serialize_lines(sorted_lines)}, "lines"
+            )
         log_end("extract_lines", {"lines_extracted": len(sorted_lines)})
 
         # STAGE 5: OCR Inference
@@ -137,7 +167,7 @@ def run_ocr_with_artifacts(
         # STAGE 6: Save Results
         if artifact_manager:
             results_dir = artifact_manager.get_results_dir()
-            TextExporter(str(results_dir)).export_lines(image, image_name, sorted_lines, ocr_lines, angle=page_angle)
+            TextExporter(str(results_dir)).export_lines(image, image_name, sorted_lines, ocr_lines)
             PageXMLExporter(str(results_dir)).export_lines(image, image_name, sorted_lines, ocr_lines, angle=page_angle)
 
         # Pipeline Complete
@@ -145,11 +175,16 @@ def run_ocr_with_artifacts(
         log_end("ocr_pipeline")
 
         if artifact_manager:
-            artifact_manager.save_metrics({
-                "total_duration_ms": pipeline_duration, "lines_detected": len(sorted_lines),
-                "lines_processed": len(ocr_lines), "dewarping_applied": dewarp_result.applied,
-                "rotation_angle": page_angle, "image_name": image_name
-            })
+            artifact_manager.save_metrics(
+                {
+                    "total_duration_ms": pipeline_duration,
+                    "lines_detected": len(sorted_lines),
+                    "lines_processed": len(ocr_lines),
+                    "dewarping_applied": dewarp_result.applied,
+                    "rotation_angle": page_angle,
+                    "image_name": image_name,
+                }
+            )
 
         return OpStatus.SUCCESS, (rot_mask, sorted_lines, ocr_lines, page_angle)
 

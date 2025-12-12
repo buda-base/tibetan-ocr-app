@@ -1,62 +1,69 @@
 import os
-from uuid import UUID
 from typing import List
-from PySide6.QtCore import Qt
-from BDRC.Data import Encoding, OCRLine, OCRLineUpdate, Platform
-from BDRC.Utils import get_filename
-from BDRC.Data import OCRData, OCRModel
-from BDRC.Widgets.GraphicItems import ImagePreview
-from BDRC.Widgets.Buttons import MenuButton, TextToolsButton
-from BDRC.MVVM.viewmodel import DataViewModel, SettingsViewModel
-from BDRC.Widgets.Dialogs import TextInputDialog
-from BDRC.Translation import tr
+from uuid import UUID
 
-from PySide6.QtCore import Signal, QPoint, QPointF, QSize, QEvent, QRectF, QThreadPool
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, QSize, Qt, QThreadPool, Signal
 from PySide6.QtGui import (
     QBrush,
     QColor,
     QFont,
-    QPen,
+    QFontDatabase,
     QImage,
-    QPixmap,
     QPainter,
     QPainterPath,
+    QPen,
+    QPixmap,
     QResizeEvent,
-    QFontDatabase
 )
-
 from PySide6.QtWidgets import (
-    QApplication,
     QAbstractItemView,
+    QApplication,
     QComboBox,
-    QScrollBar,
-    QWidget,
-    QLabel,
-    QSpacerItem,
-    QListWidget,
-    QListWidgetItem,
-    QLayout,
-    QVBoxLayout,
-    QHBoxLayout,
+    QFrame,
+    QGraphicsItem,
     QGraphicsScene,
     QGraphicsView,
-    QGraphicsItem,
-    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLayout,
     QListView,
-    QToolTip
+    QListWidget,
+    QListWidgetItem,
+    QScrollBar,
+    QSpacerItem,
+    QToolTip,
+    QVBoxLayout,
+    QWidget,
 )
+
+from BDRC.data import Encoding, OCRData, OCRLine, OCRLineUpdate, OCRModel, Platform
+from BDRC.MVVM.viewmodel import DataViewModel, SettingsViewModel
+from BDRC.translation import tr
+from BDRC.utils import get_filename
+from BDRC.widgets.buttons import MenuButton, TextToolsButton
+from BDRC.widgets.dialogs import TextInputDialog
+from BDRC.widgets.graphic_items import ImagePreview
 
 
 class HeaderTools(QFrame):
-    def __init__(self, data_view: DataViewModel, settings_view: SettingsViewModel, icon_size: int = 48, translation_manager=None):
+    def __init__(
+        self, data_view: DataViewModel, settings_view: SettingsViewModel, icon_size: int = 48, translation_manager=None
+    ):
         super().__init__()
         self.setObjectName("HeaderTools")
         self.data_view = data_view
         self.settings_view = settings_view
         self.translation_manager = translation_manager
         self.execution_dir = self.settings_view.get_execution_dir()
-        self.toolbox = ToolBox(self.execution_dir, ocr_models=self.settings_view.get_ocr_models(), icon_size=icon_size, translation_manager=self.translation_manager)
-        self.page_switcher = PageSwitcher(self.execution_dir, icon_size=icon_size, translation_manager=self.translation_manager)
+        self.toolbox = ToolBox(
+            self.execution_dir,
+            ocr_models=self.settings_view.get_ocr_models(),
+            icon_size=icon_size,
+            translation_manager=self.translation_manager,
+        )
+        self.page_switcher = PageSwitcher(
+            self.execution_dir, icon_size=icon_size, translation_manager=self.translation_manager
+        )
 
         # bind signals
         self.data_view.s_data_selected.connect(self.set_page_index)
@@ -101,13 +108,15 @@ class ToolBox(QWidget):
     s_update_page = Signal(int)
     s_on_select_model = Signal(OCRModel)
 
-    def __init__(self, execution_dir: str, ocr_models: List[OCRModel] | None, icon_size: int = 64, translation_manager=None):
+    def __init__(
+        self, execution_dir: str, ocr_models: List[OCRModel] | None, icon_size: int = 64, translation_manager=None
+    ):
         super().__init__()
         self.setObjectName("ToolBox")
         self.ocr_models = ocr_models
         self.icon_size = icon_size
         self.translation_manager = translation_manager
-        self.setFixedHeight(self.icon_size+18)
+        self.setFixedHeight(self.icon_size + 18)
         self.setMinimumWidth(720)
 
         self.new_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "new_light.png")
@@ -118,7 +127,9 @@ class ToolBox(QWidget):
         self.run_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "play_btn.png")
         self.run_all_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "play_all_btn.png")
         self.settings_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "settings.png")
-        self.language_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "settings.png")  # Reuse settings icon for now
+        self.language_btn_icon = os.path.join(
+            execution_dir, "Assets", "Textures", "settings.png"
+        )  # Reuse settings icon for now
 
         self.btn_new = MenuButton(
             tr("New Project"),
@@ -196,6 +207,7 @@ class ToolBox(QWidget):
                 self.model_selection.addItem(model.name)
             # Restore persisted model selection from QSettings
             from PySide6.QtCore import QSettings
+
             settings = QSettings("BDRC", "TibetanOCRApp")
             persisted_model_name = settings.value("main/model_name", None)
             restored = False
@@ -283,13 +295,14 @@ class ToolBox(QWidget):
             # Toggle between English and Tibetan
             new_lang = "bo" if current_lang == "en" else "en"
             success = self.translation_manager.switch_language(new_lang)
-            
+
             if success:
                 # Save the new language preference
                 from PySide6.QtCore import QSettings
+
                 settings = QSettings("BDRC", "TibetanOCRApp")
                 settings.setValue("ui/language", new_lang)
-                
+
                 # Update button texts
                 self.update_button_texts()
         else:
@@ -313,6 +326,7 @@ class ToolBox(QWidget):
     def on_select_ocr_model(self, index: int):
         # Persist the selected model name
         from PySide6.QtCore import QSettings
+
         settings = QSettings("BDRC", "TibetanOCRApp")
         if self.ocr_models and 0 <= index < len(self.ocr_models):
             settings.setValue("main/model_name", self.ocr_models[index].name)
@@ -327,6 +341,7 @@ class ToolBox(QWidget):
         self.ocr_models = ocr_models
 
         from PySide6.QtCore import QSettings
+
         settings = QSettings("BDRC", "TibetanOCRApp")
         persisted_model_name = settings.value("main/model_name", None)
 
@@ -337,7 +352,7 @@ class ToolBox(QWidget):
 
             for model in self.ocr_models:
                 self.model_selection.addItem(model.name)
-            
+
             # Priority: 1. persisted model, 2. previously selected model
             restored = False
             if persisted_model_name is not None:
@@ -351,7 +366,7 @@ class ToolBox(QWidget):
                     if model.name == current_model_name:
                         self.model_selection.setCurrentIndex(i)
                         break
-            
+
             # Re-enable signals after we've set everything up
             self.model_selection.blockSignals(False)
 
@@ -405,7 +420,7 @@ class PageSwitcher(QFrame):
 
     def update_page(self, index: int):
         self.current_index = index
-        self.current_page.setText(str(self.current_index+1))
+        self.current_page.setText(str(self.current_index + 1))
 
     def prev(self):
         next_index = self.current_index - 1
@@ -417,7 +432,7 @@ class PageSwitcher(QFrame):
     def next(self):
         next_index = self.current_index + 1
 
-        if not next_index > self.max_pages-1:
+        if not next_index > self.max_pages - 1:
             self.update_page(next_index)
             self.s_on_page_changed.emit(next_index)
 
@@ -527,7 +542,6 @@ class PTGraphicsView(QGraphicsView):
         """
         )
 
-
     def enable_rubberband(self):
         self.setDragMode(QGraphicsView.DragMode.RubberBandDrag)
 
@@ -559,7 +573,7 @@ class PTGraphicsView(QGraphicsView):
                     return
                 self.scale(zoom_factor, zoom_factor)
 
-        elif y_delta < - 6:
+        elif y_delta < -6:
             if self.zoom_range[0] < self.current_zoom_step <= self.zoom_range[-1]:
                 zoom_factor = 1.01
                 self.current_zoom_step -= 0.1
@@ -591,7 +605,7 @@ class PTGraphicsView(QGraphicsView):
                 b_rect = item.boundingRect()
                 self.fit_in_view(b_rect)
         return super().resizeEvent(event)
-    
+
     def fit_in_view(self, brect: QRectF):
         if not self.default_zoom_step < self.current_zoom_step < self.default_zoom_step:
             _target_zoom_step = self.default_zoom_step - self.current_zoom_step
@@ -599,7 +613,7 @@ class PTGraphicsView(QGraphicsView):
         else:
             return
 
-        _zoom_factor = self.zoom_in_factor ** _target_zoom_step
+        _zoom_factor = self.zoom_in_factor**_target_zoom_step
         self.scale(_zoom_factor, _zoom_factor)
         self.current_zoom_step = 10
 
@@ -681,36 +695,16 @@ class Canvas(QFrame):
         self.zoom_in_icon = os.path.join(execution_dir, "Assets", "Textures", "plus_sign.png")
         self.zoom_out_icon = os.path.join(execution_dir, "Assets", "Textures", "minus_sign.png")
 
-        self.toggle_prev_btn = MenuButton(
-            "Toggle line preview",
-            self.toggle_prev_btn_icon,
-            width=26,
-            height=26
-        )
+        self.toggle_prev_btn = MenuButton("Toggle line preview", self.toggle_prev_btn_icon, width=26, height=26)
         self.toggle_prev_btn.setObjectName("CanvasToolButton")
 
-        self.fit_in_btn = MenuButton(
-            "Fit image in view",
-            self.fit_view_icon,
-            width=26,
-            height=26
-        )
+        self.fit_in_btn = MenuButton("Fit image in view", self.fit_view_icon, width=26, height=26)
         self.fit_in_btn.setObjectName("CanvasToolButton")
 
-        self.zoom_in_btn = MenuButton(
-            "Zoom in",
-            self.zoom_in_icon,
-            width=26,
-            height=26
-        )
+        self.zoom_in_btn = MenuButton("Zoom in", self.zoom_in_icon, width=26, height=26)
         self.zoom_in_btn.setObjectName("CanvasToolButton")
 
-        self.zoom_out_btn = MenuButton(
-            "Zoom out",
-            self.zoom_out_icon,
-            width=26,
-            height=26
-        )
+        self.zoom_out_btn = MenuButton("Zoom out", self.zoom_out_icon, width=26, height=26)
         self.zoom_out_btn.setObjectName("CanvasToolButton")
 
         # bind signals
@@ -740,9 +734,7 @@ class Canvas(QFrame):
             _new_size = event.size()
             self.current_width = _new_size.width()
             self.current_height = _new_size.height()
-            self.gr_scene.setSceneRect(
-                QRectF(0, 0, self.current_width, self.current_height)
-            )
+            self.gr_scene.setSceneRect(QRectF(0, 0, self.current_width, self.current_height))
 
     def set_preview(self, data: OCRData):
         self.view.reset_scaling()
@@ -765,19 +757,18 @@ class Canvas(QFrame):
                     item.show_preview()
 
     def fit_in_view(self):
-        #print("Canvas -> fit_in_view")
+        # print("Canvas -> fit_in_view")
         scene_rect = self.gr_scene.sceneRect()
-        #print(f"Canvas -> SceneRect: {scene_rect}")
+        # print(f"Canvas -> SceneRect: {scene_rect}")
         view_height = self.view.height()
         view_width = self.view.width()
-        #print(f"Canvas -> ViewSize: {view_width}, {view_height}")
+        # print(f"Canvas -> ViewSize: {view_width}, {view_height}")
 
         for item in self.gr_scene.items():
             if isinstance(item, ImagePreview):
                 b_rect = item.boundingRect()
                 item.setPos(0, 0)
                 self.view.fit_in_view(b_rect)
-
 
     def zoom_in(self):
         self.view.handle_mouse_zoom(-1)
@@ -806,7 +797,8 @@ class ImageList(QListWidget):
 
         self.v_scrollbar = QScrollBar(self)
         self.h_scrollbar = QScrollBar(self)
-        self.v_scrollbar.setStyleSheet("""
+        self.v_scrollbar.setStyleSheet(
+            """
                                                              
             QScrollBar:vertical {
                 border: none;
@@ -843,7 +835,8 @@ class ImageList(QListWidget):
             QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
                 background: none;
             }
-            """)
+            """
+        )
 
         self.h_scrollbar.setStyleSheet(
             """
@@ -946,14 +939,10 @@ class ImageThumb(QFrame):
 
     def resize_thumb(self, new_width: int):
         self.current_width = new_width
-        self.source_img = QImage(
-            self.current_width, self.max_height, QImage.Format.Format_ARGB32
-        )
+        self.source_img = QImage(self.current_width, self.max_height, QImage.Format.Format_ARGB32)
         self.source_img.fill(Qt.GlobalColor.blue)
 
-        self.dest_img = QImage(
-            self.current_width, self.max_height, QImage.Format.Format_ARGB32
-        )
+        self.dest_img = QImage(self.current_width, self.max_height, QImage.Format.Format_ARGB32)
         self.dest_img.fill(Qt.GlobalColor.transparent)
 
         self.clip_path = QPainterPath()
@@ -1069,7 +1058,7 @@ class ImageListWidget(QWidget):
 
         self.setLayout(self.v_layout)
         self.is_active = False
-        
+
         # bind delete signal
         self.btn_delete.clicked.connect(self.delete_image)
 
@@ -1078,7 +1067,7 @@ class ImageListWidget(QWidget):
 
     def resizeEvent(self, event):
         if isinstance(event, QResizeEvent):
-            self.thumb.resize_thumb(event.size().width()-20)
+            self.thumb.resize_thumb(event.size().width() - 20)
 
     def event(self, event):
         if event.type() == QEvent.Type.Enter:
@@ -1128,9 +1117,8 @@ class ImageGallery(QFrame):
         self.image_label = QLabel(self)
         self.image_label.setContentsMargins(6, 0, 0, 0)
         self.image_pixmap = QPixmap(os.path.join(execution_dir, "Assets", "Textures", "BDRC_Logo.png")).scaled(
-            QSize(140, 90),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation)
+            QSize(140, 90), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+        )
 
         self.image_label.setPixmap(self.image_pixmap)
 
@@ -1154,24 +1142,23 @@ class ImageGallery(QFrame):
         self.current_width = self.current_size.width()
         self.current_height = self.current_size.height()
         self.image_list.resize(self.current_width, self.current_height)
-        
 
     def resizeEvent(self, event):
         if isinstance(event, QResizeEvent):
             _new_size = event.size()
             self.current_width = _new_size.width()
-            #self.image_list.resizeContents(self.current_width)
+            # self.image_list.resizeContents(self.current_width)
 
     def handle_item_selection(self, guid: UUID):
         for idx in range(self.image_list.count()):
-                item = self.image_list.item(idx)
-                item_widget = self.image_list.itemWidget(item)
+            item = self.image_list.item(idx)
+            item_widget = self.image_list.itemWidget(item)
 
-                if isinstance(item_widget, ImageListWidget):
-                    if item_widget.guid == guid:
-                        item_widget.select()
-                    else:
-                        item_widget.unselect()
+            if isinstance(item_widget, ImageListWidget):
+                if item_widget.guid == guid:
+                    item_widget.select()
+                else:
+                    item_widget.unselect()
 
         self.view_model.select_data_by_guid(guid)
 
@@ -1211,12 +1198,7 @@ class ImageGallery(QFrame):
         image_item = QListWidgetItem()
         image_item.setSizeHint(QSize(target_width, 200))
         image_widget = ImageListWidget(
-            data.guid,
-            data.image_path,
-            data.qimage,
-            width=target_width,
-            height=200,
-            execution_dir= self.execution_dir
+            data.guid, data.image_path, data.qimage, width=target_width, height=200, execution_dir=self.execution_dir
         )
         image_widget.s_delete_image.connect(self.delete_image)
         self.image_list.addItem(image_item)
@@ -1226,7 +1208,7 @@ class ImageGallery(QFrame):
         self.clear_data()
 
         size_hint = self.sizeHint()
-        target_width = size_hint.width()-120
+        target_width = size_hint.width() - 120
 
         for _data in data:
             self.add_image_widget(_data, target_width)
@@ -1247,7 +1229,6 @@ class ImageGallery(QFrame):
 
     def clear_data(self):
         self.image_list.clear()
-
 
 
 class TextWidgetList(QListWidget):
@@ -1380,7 +1361,16 @@ class TextWidget(QWidget):
 
 
 class TextView(QFrame):
-    def __init__(self, platform: Platform, dataview: DataViewModel, execution_dir: str, font_path: str, font_size: int = 18, encoding: Encoding = Encoding.Unicode, translation_manager=None):
+    def __init__(
+        self,
+        platform: Platform,
+        dataview: DataViewModel,
+        execution_dir: str,
+        font_path: str,
+        font_size: int = 18,
+        encoding: Encoding = Encoding.UNICODE,
+        translation_manager=None,
+    ):
         super().__init__()
         self.setObjectName("TextView")
         self.setContentsMargins(0, 0, 0, 0)
@@ -1392,15 +1382,16 @@ class TextView(QFrame):
 
         # load persisted font size or default
         from PySide6.QtCore import QSettings
+
         settings = QSettings("BDRC", "TibetanOCRApp")
         self.font_size = settings.value("main/font_size", font_size, type=int)
         self.encoding = encoding
         self.default_font_path = font_path
 
-        if self.platform == Platform.Windows:
-            
+        if self.platform == Platform.WINDOWS:
+
             font_id = QFontDatabase.addApplicationFont(self.default_font_path)
-            
+
             if font_id == -1:
                 print("Failed to load font")
             else:
@@ -1428,16 +1419,12 @@ class TextView(QFrame):
             self.convert_wylie_btn_icon,
             width=32,
             height=32,
-            object_name="TextToolsButton"
+            object_name="TextToolsButton",
         )
 
         self.copy_text_btn_icon = os.path.join(execution_dir, "Assets", "Textures", "copy.png")
         self.copy_text_btn = MenuButton(
-            tr("copy all text lines"),
-            self.copy_text_btn_icon,
-            width=32,
-            height=32,
-            object_name="TextToolsButton"
+            tr("copy all text lines"), self.copy_text_btn_icon, width=32, height=32, object_name="TextToolsButton"
         )
 
         self.spacer = QLabel()
@@ -1473,6 +1460,7 @@ class TextView(QFrame):
         self.qfont.setPointSize(new_size)
         # persist font size
         from PySide6.QtCore import QSettings
+
         QSettings("BDRC", "TibetanOCRApp").setValue("main/font_size", new_size)
         self.font_size = new_size
 
@@ -1508,6 +1496,7 @@ class TextView(QFrame):
         self.qfont.setPointSize(new_size)
         # persist font size
         from PySide6.QtCore import QSettings
+
         QSettings("BDRC", "TibetanOCRApp").setValue("main/font_size", new_size)
         self.font_size = new_size
 
@@ -1570,10 +1559,7 @@ class TextView(QFrame):
         self.font_size = font_size
 
     def handle_line_edit(self, ocr_line: OCRLine):
-        ocr_line_update = OCRLineUpdate(
-            self.page_guid,
-            ocr_line
-        )
+        ocr_line_update = OCRLineUpdate(self.page_guid, ocr_line)
         self._dataview.update_ocr_line(ocr_line_update)
 
     def handle_line_update(self, ocr_data: OCRData):

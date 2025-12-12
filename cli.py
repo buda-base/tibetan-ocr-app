@@ -5,14 +5,13 @@ import sys
 
 import cv2
 
-from BDRC.ArtifactManager import ArtifactManager
-from BDRC.AuditLogger import AuditLogger
-from BDRC.Data import (ArtifactConfig, Encoding, LayoutDetectionConfig,
-                       LineDetectionConfig)
-from BDRC.Exporter import TextExporter
-from BDRC.Inference import OCRPipeline
-from BDRC.PipelineWithArtifacts import run_ocr_with_artifacts
-from BDRC.Utils import get_platform, import_local_model
+from BDRC.artifact_manager import ArtifactManager
+from BDRC.audit_logger import AuditLogger
+from BDRC.data import ArtifactConfig, Encoding, LayoutDetectionConfig, LineDetectionConfig
+from BDRC.exporter import TextExporter
+from BDRC.inference import OCRPipeline
+from BDRC.pipeline import run_ocr_with_artifacts
+from BDRC.utils import get_platform, import_local_model
 
 IMAGE_EXTENSIONS = ("*.jpg", "*.jpeg", "*.png", "*.tif", "*.tiff")
 
@@ -31,8 +30,12 @@ def main():
     parser.add_argument("--line-mode", choices=["line", "layout"], default="line", help="Line detection mode")
     parser.add_argument("--save-artifacts", action="store_true", help="Enable artifact saving")
     parser.add_argument("--artifact-output", default="output", help="Base directory for artifacts")
-    parser.add_argument("--artifact-granularity", choices=["minimal", "standard"], default="standard",
-                        help="Level of artifact detail to save")
+    parser.add_argument(
+        "--artifact-granularity",
+        choices=["minimal", "standard"],
+        default="standard",
+        help="Level of artifact detail to save",
+    )
     args = parser.parse_args()
 
     if args.image and args.folder:
@@ -53,11 +56,13 @@ def main():
         line_config = LineDetectionConfig(model_file="Models/Lines/PhotiLines.onnx", patch_size=512)
     else:
         line_config = LayoutDetectionConfig(
-            model_file="Models/Layout/photi.onnx", patch_size=512,
-            classes=["background", "image", "line", "caption", "margin"])
+            model_file="Models/Layout/photi.onnx",
+            patch_size=512,
+            classes=["background", "image", "line", "caption", "margin"],
+        )
 
     pipeline = OCRPipeline(get_platform(), ocr_model.config, line_config)
-    target_encoding = Encoding.Unicode if args.encoding == "unicode" else Encoding.Wylie
+    target_encoding = Encoding.UNICODE if args.encoding == "unicode" else Encoding.WYLIE
 
     # Collect images
     is_batch_mode = bool(args.folder)
@@ -77,19 +82,24 @@ def main():
     if args.save_artifacts:
         is_standard = args.artifact_granularity == "standard"
         artifact_config = ArtifactConfig(
-            enabled=True, granularity=args.artifact_granularity,
-            save_detection=is_standard, save_dewarping=is_standard)
+            enabled=True, granularity=args.artifact_granularity, save_detection=is_standard, save_dewarping=is_standard
+        )
 
         artifact_manager = ArtifactManager(
-            base_output_dir=args.artifact_output, job_id=None,
+            base_output_dir=args.artifact_output,
+            job_id=None,
             config={
                 "image_count": len(image_paths),
                 "image_paths": [os.path.basename(p) for p in image_paths],
-                "k_factor": args.k_factor, "bbox_tolerance": args.bbox_tolerance,
-                "merge_lines": args.merge_lines, "dewarp": args.dewarp,
-                "encoding": args.encoding, "line_mode": args.line_mode,
+                "k_factor": args.k_factor,
+                "bbox_tolerance": args.bbox_tolerance,
+                "merge_lines": args.merge_lines,
+                "dewarp": args.dewarp,
+                "encoding": args.encoding,
+                "line_mode": args.line_mode,
                 "artifact_granularity": args.artifact_granularity,
-            })
+            },
+        )
         artifact_manager.create_directory_structure()
         artifact_manager.save_config()
 
@@ -112,10 +122,18 @@ def main():
             artifact_manager.set_current_page(page_name)
 
         status, result = run_ocr_with_artifacts(
-            pipeline=pipeline, image=img, image_name=base,
-            k_factor=args.k_factor, bbox_tolerance=args.bbox_tolerance,
-            merge_lines=args.merge_lines, use_tps=args.dewarp, target_encoding=target_encoding,
-            artifact_manager=artifact_manager, audit_logger=audit_logger, artifact_config=artifact_config)
+            pipeline=pipeline,
+            image=img,
+            image_name=base,
+            k_factor=args.k_factor,
+            bbox_tolerance=args.bbox_tolerance,
+            merge_lines=args.merge_lines,
+            use_tps=args.dewarp,
+            target_encoding=target_encoding,
+            artifact_manager=artifact_manager,
+            audit_logger=audit_logger,
+            artifact_config=artifact_config,
+        )
 
         if status.name == "SUCCESS":
             _, lines, ocr_lines, angle = result

@@ -1,22 +1,16 @@
+import os
 import re
-
 from typing import List
-from PySide6.QtCore import Qt, QSettings
-from PySide6.QtWidgets import (
-    QDialog,
-    QLabel,
-    QVBoxLayout,
-    QHBoxLayout,
-    QPushButton,
-    QLineEdit,
-    QButtonGroup,
-    QCheckBox
-)
 
-from BDRC.Data import OCRData, Encoding, OCRLine
-from BDRC.Widgets.Dialogs.helpers import build_encodings, build_exporter_settings
-from BDRC.Widgets.Dialogs.export_dir_dialog import ExportDirDialog
-from BDRC.Exporter import PageXMLExporter, JsonExporter, TextExporter
+from pyewts import pyewts
+from PySide6.QtCore import QSettings, Qt
+from PySide6.QtWidgets import QCheckBox, QDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout
+
+from BDRC.data import Encoding, OCRData, OCRLine
+from BDRC.exporter import JsonExporter, PageXMLExporter, TextExporter
+from BDRC.widgets.dialogs.export_dir_dialog import ExportDirDialog
+from BDRC.widgets.dialogs.helpers import build_encodings, build_exporter_settings
+
 
 class ExportDialog(QDialog):
     last_export_dir = None  # Remember last export folder for this session
@@ -28,16 +22,17 @@ class ExportDialog(QDialog):
     SETTINGS_INSERT_PAGE_NUM = "export_dialog/insert_page_number"
 
     def __init__(
-            self,
-            ocr_data: List[OCRData],
-            active_encoding: Encoding,
-        ):
+        self,
+        ocr_data: List[OCRData],
+        active_encoding: Encoding,
+    ):
         super().__init__()
         self.setObjectName("ExportDialog")
         self.ocr_data = ocr_data
         self.encoding = active_encoding
         import os
         from pathlib import Path
+
         # Use last export dir if set, otherwise default to user's Downloads folder
         # Load settings
         settings = QSettings(ExportDialog.SETTINGS_ORG, ExportDialog.SETTINGS_APP)
@@ -65,7 +60,7 @@ class ExportDialog(QDialog):
         if encoding_id is not None:
             encoding_id = int(encoding_id)
             for btn in self.encoding_buttons:
-                if btn.property('encoding_id') == encoding_id:
+                if btn.property("encoding_id") == encoding_id:
                     btn.setChecked(True)
                     break
             self.encodings_group.setId(self.encoding_buttons[self.encoding_buttons.index(btn)], encoding_id)
@@ -146,7 +141,7 @@ class ExportDialog(QDialog):
         # Use directory from UI input (handle manual path entries)
         self.output_dir = self.dir_edit.text().strip()
         # Normalize path separators for the OS
-        import os
+
         self.output_dir = os.path.normpath(self.output_dir)
         if not self.output_dir:
             return
@@ -169,22 +164,25 @@ class ExportDialog(QDialog):
         if export_single_file and isinstance(exporter, TextExporter):
             # Combine all pages into a single file
             all_lines = []
-            from pyewts import pyewts
-            converter = pyewts() if selected_encoding_id == Encoding.Wylie.value else None
+
+            converter = pyewts() if selected_encoding_id == Encoding.WYLIE.value else None
             for idx, data in enumerate(self.ocr_data, 1):
                 if data.ocr_lines is not None:
                     lines = data.ocr_lines
-                    if selected_encoding_id == Encoding.Wylie.value:
-                        lines = [OCRLine(l.guid, converter.toWylie(l.text), Encoding.Wylie) for l in data.ocr_lines]
+                    if selected_encoding_id == Encoding.WYLIE.value:
+                        lines = [
+                            OCRLine(line.guid, converter.toWylie(line.text), Encoding.WYLIE) for line in data.ocr_lines
+                        ]
                     if insert_page_numbers:
                         all_lines.append(OCRLine(None, f"--- Page {idx} ---", None))
                     all_lines.extend(lines)
             # Export to a single file named after the original file, with .txt extension
-            import os
+
             def get_original_basename(name):
                 base = os.path.splitext(os.path.basename(name))[0]
-                return re.sub(r' - page \d+$', '', base)
-            if self.ocr_data and hasattr(self.ocr_data[0], 'image_name'):
+                return re.sub(r" - page \d+$", "", base)
+
+            if self.ocr_data and hasattr(self.ocr_data[0], "image_name"):
                 base = get_original_basename(self.ocr_data[0].image_name)
                 export_filename = base
             else:
@@ -195,13 +193,13 @@ class ExportDialog(QDialog):
             for data in self.ocr_data:
                 if isinstance(exporter, TextExporter):
                     if data.ocr_lines is not None:
-                        if selected_encoding_id == Encoding.Wylie.value:
-                            from pyewts import pyewts
+                        if selected_encoding_id == Encoding.WYLIE.value:
+
                             converter = pyewts()
                             wylie_lines = []
-                            for l in data.ocr_lines:
-                                wylie_text = converter.toWylie(l.text)
-                                wylie_lines.append(OCRLine(l.guid, wylie_text, Encoding.Wylie))
+                            for line in data.ocr_lines:
+                                wylie_text = converter.toWylie(line.text)
+                                wylie_lines.append(OCRLine(line.guid, wylie_text, Encoding.WYLIE))
                             exporter.export_text(data.image_name, wylie_lines)
                         else:
                             exporter.export_text(data.image_name, data.ocr_lines)

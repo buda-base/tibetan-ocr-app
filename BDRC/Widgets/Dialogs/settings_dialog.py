@@ -1,34 +1,28 @@
-from uuid import UUID
 import os
 from typing import List, Tuple
-from PySide6.QtCore import Qt, Signal
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QDialog,
+    QFileDialog,
+    QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QVBoxLayout,
-    QHBoxLayout,
-    QPushButton,
-    QWidget,
-    QButtonGroup,
-    QRadioButton,
     QTabWidget,
-    QLineEdit,
-    QFileDialog,
-    QMessageBox
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtGui import QColor
 
-from BDRC.Data import AppSettings, OCRSettings, OCRModel, LineMode, Encoding
-from BDRC.Utils import import_local_models
-from BDRC.Translation import tr
-from BDRC.Widgets.Dialogs.helpers import (
-    build_line_mode,
-    build_encodings,
-    build_languages,
-    build_binary_selection
-)
+from BDRC.data import AppSettings, Encoding, LineMode, OCRModel, OCRSettings
+from BDRC.translation import tr
+from BDRC.utils import import_local_models
+from BDRC.widgets.dialogs.helpers import build_binary_selection, build_encodings, build_line_mode
+
 
 class SettingsDialog(QDialog):
     SETTINGS_ORG = "BDRC"
@@ -43,11 +37,11 @@ class SettingsDialog(QDialog):
     SETTINGS_MODEL_PATH = "settings_dialog/model_path"
 
     def __init__(
-            self,
-            app_settings: AppSettings,
-            ocr_settings: OCRSettings,
-            ocr_models: List[OCRModel],
-        ):
+        self,
+        app_settings: AppSettings,
+        ocr_settings: OCRSettings,
+        ocr_models: List[OCRModel],
+    ):
         super().__init__()
         self.setObjectName("SettingsDialog")
         self.app_settings = app_settings
@@ -57,6 +51,7 @@ class SettingsDialog(QDialog):
 
         # Load settings
         from PySide6.QtCore import QSettings
+
         settings = QSettings(SettingsDialog.SETTINGS_ORG, SettingsDialog.SETTINGS_APP)
         line_mode_val = settings.value(SettingsDialog.SETTINGS_LINE_MODE, None)
         encoding_val = settings.value(SettingsDialog.SETTINGS_ENCODING, None)
@@ -114,7 +109,7 @@ class SettingsDialog(QDialog):
                 self.ocr_settings.k_factor = float(k_factor_val)
             except Exception:
                 pass
-        if hasattr(self, 'k_factor_edit'):
+        if hasattr(self, "k_factor_edit"):
             self.k_factor_edit.setText(str(self.ocr_settings.k_factor))
 
         # Restore bbox tolerance
@@ -123,7 +118,7 @@ class SettingsDialog(QDialog):
                 self.ocr_settings.bbox_tolerance = float(bbox_tol_val)
             except Exception:
                 pass
-        if hasattr(self, 'bbox_tolerance_edit'):
+        if hasattr(self, "bbox_tolerance_edit"):
             self.bbox_tolerance_edit.setText(str(self.ocr_settings.bbox_tolerance))
 
         # Restore model path
@@ -137,7 +132,6 @@ class SettingsDialog(QDialog):
 
         # define layout
         self.settings_tabs = QTabWidget()
-
 
         # OCR Models Tab
         self.ocr_models_tab = QWidget()
@@ -243,9 +237,7 @@ class SettingsDialog(QDialog):
         self.bbox_tolerance_edit = QLineEdit()
         self.bbox_tolerance_edit.setObjectName("DialogLineEdit")
         self.bbox_tolerance_edit.setFixedWidth(60)
-        self.bbox_tolerance_edit.editingFinished.connect(
-            self.validate_bbox_tolerance_input
-        )
+        self.bbox_tolerance_edit.editingFinished.connect(self.validate_bbox_tolerance_input)
         self.bbox_tolerance_edit.setText(str(self.ocr_settings.bbox_tolerance))
         bbox_tolerance_layout.addWidget(bbox_tolerance_label)
         bbox_tolerance_layout.addWidget(self.bbox_tolerance_edit)
@@ -359,11 +351,12 @@ class SettingsDialog(QDialog):
 
     def reset_fields_to_defaults(self):
         # Set all UI fields and in-memory settings to their default values
-        from BDRC.Data import OCRSettings, AppSettings, LineMode, Encoding
+        from BDRC.Data import AppSettings, Encoding, LineMode, OCRSettings
+
         # Set defaults (adjust as appropriate for your app)
         # OCRSettings defaults
-        default_line_mode = LineMode.Line
-        default_encoding = Encoding.Unicode
+        default_line_mode = LineMode.LINE
+        default_encoding = Encoding.UNICODE
         default_dewarping = True
         default_merge_lines = False
         default_k_factor = 2.5
@@ -397,25 +390,27 @@ class SettingsDialog(QDialog):
         file_dialog.setFileMode(QFileDialog.Directory)
         file_dialog.setOption(QFileDialog.ShowDirsOnly, True)
         file_dialog.setWindowTitle(tr("Select Model Directory"))
-        
+
         if file_dialog.exec():
             selected_dir = file_dialog.selectedFiles()[0]
             if os.path.isdir(selected_dir):
                 try:
                     # Import models from the selected directory
                     imported_models = import_local_models(selected_dir)
-                    
+
                     # Confirm with the user
                     confirm_dialog = QMessageBox()
                     confirm_dialog.setWindowTitle(tr("Confirm Model Import"))
-                    confirm_dialog.setText(tr("Do you want to import the selected models? Existing models will be replaced."))
+                    confirm_dialog.setText(
+                        tr("Do you want to import the selected models? Existing models will be replaced.")
+                    )
                     confirm_dialog.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
                     confirm_dialog.setDefaultButton(QMessageBox.No)
-                    
+
                     if confirm_dialog.exec() == QMessageBox.Yes:
                         self.ocr_models = imported_models
                         self.update_model_table(self.ocr_models)
-                        
+
                 except Exception as e:
                     # Show error dialog
                     error_dialog = QMessageBox()
@@ -423,7 +418,7 @@ class SettingsDialog(QDialog):
                     error_dialog.setText(f"Importing Models Failed: {e}")
                     error_dialog.setIcon(QMessageBox.Critical)
                     error_dialog.exec()
-                
+
                 # Save the selected directory to app settings
                 self.app_settings.model_path = selected_dir
 
@@ -432,22 +427,19 @@ class SettingsDialog(QDialog):
 
         if result == QDialog.DialogCode.Accepted:
             from PySide6.QtCore import QSettings
+
             settings = QSettings(SettingsDialog.SETTINGS_ORG, SettingsDialog.SETTINGS_APP)
 
             # update ocr settings
             for btn in self.line_mode_buttons:
                 if btn.isChecked():
-                    self.ocr_settings.line_mode = LineMode(
-                        self.line_mode_group.id(btn)
-                    )
+                    self.ocr_settings.line_mode = LineMode(self.line_mode_group.id(btn))
                     settings.setValue(SettingsDialog.SETTINGS_LINE_MODE, self.line_mode_group.id(btn))
                     break
 
             for btn in self.encoding_buttons:
                 if btn.isChecked():
-                    self.ocr_settings.output_encoding = Encoding(
-                        self.encodings_group.id(btn)
-                    )
+                    self.ocr_settings.output_encoding = Encoding(self.encodings_group.id(btn))
                     settings.setValue(SettingsDialog.SETTINGS_ENCODING, self.encodings_group.id(btn))
                     break
 
@@ -491,7 +483,7 @@ class SettingsDialog(QDialog):
                 pass
 
             # Save model path if set
-            if hasattr(self.app_settings, 'model_path') and self.app_settings.model_path:
+            if hasattr(self.app_settings, "model_path") and self.app_settings.model_path:
                 settings.setValue(SettingsDialog.SETTINGS_MODEL_PATH, self.app_settings.model_path)
 
             return self.app_settings, self.ocr_settings, self.ocr_models

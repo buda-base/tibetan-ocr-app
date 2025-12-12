@@ -1,8 +1,9 @@
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QButtonGroup, QRadioButton
 
-from BDRC.Data import LineMode, Language, Encoding
-from BDRC.Translation import tr
+from BDRC.data import Encoding, Language, LineMode
+from BDRC.translation import tr
+
 
 # Line Models
 def build_line_mode(active_mode: LineMode):
@@ -12,18 +13,19 @@ def build_line_mode(active_mode: LineMode):
 
     line_btn = QRadioButton(tr("Line"))
     line_btn.setObjectName("OptionsRadio")
-    line_btn.setChecked(active_mode == LineMode.Line)
-    
+    line_btn.setChecked(active_mode == LineMode.LINE)
+
     layout_btn = QRadioButton(tr("Layout"))
     layout_btn.setObjectName("OptionsRadio")
-    layout_btn.setChecked(active_mode == LineMode.Layout)
+    layout_btn.setChecked(active_mode == LineMode.LAYOUT)
 
     line_mode_group.addButton(line_btn)
     line_mode_group.addButton(layout_btn)
-    line_mode_group.setId(line_btn, LineMode.Line.value)
-    line_mode_group.setId(layout_btn, LineMode.Layout.value)
+    line_mode_group.setId(line_btn, LineMode.LINE.value)
+    line_mode_group.setId(layout_btn, LineMode.LAYOUT.value)
 
     return line_mode_group, [line_btn, layout_btn]
+
 
 # Languages
 def build_languages(active_language: Language):
@@ -33,12 +35,13 @@ def build_languages(active_language: Language):
 
     tibetan_btn = QRadioButton(tr("Tibetan"))
     tibetan_btn.setObjectName("OptionsRadio")
-    tibetan_btn.setChecked(active_language == Language.Tibetan)
+    tibetan_btn.setChecked(active_language == Language.TIBETAN)
 
     language_group.addButton(tibetan_btn)
-    language_group.setId(tibetan_btn, Language.Tibetan.value)
+    language_group.setId(tibetan_btn, Language.TIBETAN.value)
 
     return language_group, [tibetan_btn]
+
 
 # Export Formats
 def build_exporter_settings():
@@ -55,6 +58,7 @@ def build_exporter_settings():
 
     return exporter_group, [txt_btn]
 
+
 # Encodings
 def build_encodings(active_encoding: Encoding):
     encoding_group = QButtonGroup()
@@ -63,18 +67,19 @@ def build_encodings(active_encoding: Encoding):
 
     unicode_btn = QRadioButton(tr("Unicode"))
     unicode_btn.setObjectName("OptionsRadio")
-    unicode_btn.setChecked(active_encoding == Encoding.Unicode)
+    unicode_btn.setChecked(active_encoding == Encoding.UNICODE)
 
     wylie_btn = QRadioButton(tr("Wylie"))
     wylie_btn.setObjectName("OptionsRadio")
-    wylie_btn.setChecked(active_encoding == Encoding.Wylie)
+    wylie_btn.setChecked(active_encoding == Encoding.WYLIE)
 
     encoding_group.addButton(unicode_btn)
     encoding_group.addButton(wylie_btn)
-    encoding_group.setId(unicode_btn, Encoding.Unicode.value)
-    encoding_group.setId(wylie_btn, Encoding.Wylie.value)
+    encoding_group.setId(unicode_btn, Encoding.UNICODE.value)
+    encoding_group.setId(wylie_btn, Encoding.WYLIE.value)
 
     return encoding_group, [unicode_btn, wylie_btn]
+
 
 # Dewarping
 def build_binary_selection(current_setting: bool):

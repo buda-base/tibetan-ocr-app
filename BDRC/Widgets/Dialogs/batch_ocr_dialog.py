@@ -1,21 +1,13 @@
 from typing import List
-from PySide6.QtCore import Qt, QThreadPool, Signal
-from PySide6.QtWidgets import (
-    QDialog,
-    QLabel,
-    QVBoxLayout,
-    QHBoxLayout,
-    QPushButton,
-    QLineEdit,
-    QButtonGroup,
-    QProgressBar,
-    QComboBox
-)
 
-from BDRC.Data import OCRData, OCRModel, OCRSettings, OCRSample, OCResult, Encoding
-from BDRC.Inference import OCRPipeline
-from BDRC.Runner import OCRBatchRunner
-from BDRC.Widgets.Dialogs.helpers import build_encodings, build_binary_selection, build_exporter_settings
+from PySide6.QtCore import Qt, QThreadPool, Signal
+from PySide6.QtWidgets import QComboBox, QDialog, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QPushButton, QVBoxLayout
+
+from BDRC.data import OCRData, OCResult, OCRModel, OCRSample, OCRSettings
+from BDRC.inference import OCRPipeline
+from BDRC.runner import OCRBatchRunner
+from BDRC.widgets.dialogs.helpers import build_binary_selection, build_encodings, build_exporter_settings
+
 
 class BatchOCRDialog(QDialog):
     sign_ocr_result = Signal(OCResult)
@@ -41,7 +33,7 @@ class BatchOCRDialog(QDialog):
         self.ocr_settings = ocr_settings
         self.threadpool = threadpool
         self.current_model = current_model
-        
+
         self.setWindowTitle("Batch Process")
         self.setMinimumWidth(600)
         self.setMaximumWidth(1200)
@@ -65,15 +57,9 @@ class BatchOCRDialog(QDialog):
         # settings elements
         # Exports
         self.exporter_group, self.exporter_buttons = build_exporter_settings()
-        self.encodings_group, self.encoding_buttons = build_encodings(
-            self.ocr_settings.output_encoding
-        )
-        self.dewarp_group, self.dewarp_buttons = build_binary_selection(
-            self.ocr_settings.dewarping
-        )
-        self.merge_group, self.merge_buttons = build_binary_selection(
-            self.ocr_settings.merge_lines
-        )
+        self.encodings_group, self.encoding_buttons = build_encodings(self.ocr_settings.output_encoding)
+        self.dewarp_group, self.dewarp_buttons = build_binary_selection(self.ocr_settings.dewarping)
+        self.merge_group, self.merge_buttons = build_binary_selection(self.ocr_settings.merge_lines)
 
         # build layout
         self.progress_layout = QHBoxLayout()
@@ -112,14 +98,14 @@ class BatchOCRDialog(QDialog):
         if self.ocr_models is not None and len(self.ocr_models) > 0:
             # Temporarily block signals to avoid triggering update during setup
             self.model_selection.blockSignals(True)
-            
+
             # Add models to the dropdown
             for model in self.ocr_models:
                 self.model_selection.addItem(model.name)
-            
+
             # Determine which model to select
             selected_index = 0
-            
+
             # If a current model is provided, select it
             if self.current_model is not None:
                 for i, model in enumerate(self.ocr_models):
@@ -129,10 +115,10 @@ class BatchOCRDialog(QDialog):
             # Otherwise use the remembered index if it's valid
             elif BatchOCRDialog.last_selected_model_index < len(self.ocr_models):
                 selected_index = BatchOCRDialog.last_selected_model_index
-            
+
             # Set the selection
             self.model_selection.setCurrentIndex(selected_index)
-            
+
             # Re-enable signals
             self.model_selection.blockSignals(False)
 
@@ -179,9 +165,7 @@ class BatchOCRDialog(QDialog):
         bbox_tolerance_label.setObjectName("OptionsLabel")
         self.bbox_tolerance_edit = QLineEdit()
         self.bbox_tolerance_edit.setText(str(self.ocr_settings.bbox_tolerance))
-        self.bbox_tolerance_edit.editingFinished.connect(
-            self.validate_bbox_tolerance_input
-        )
+        self.bbox_tolerance_edit.editingFinished.connect(self.validate_bbox_tolerance_input)
 
         spacer = QLabel()
         spacer.setFixedWidth(60)
@@ -226,13 +210,13 @@ class BatchOCRDialog(QDialog):
     def start_process(self):
         if self.processing:
             return
-            
+
         self.processing = True
         self.status.setText("Processing...")
         self.progress_bar.setValue(0)
         self.start_process_btn.setEnabled(False)
         self.cancel_process_btn.setEnabled(True)
-        
+
         # Create runner
         self.runner = OCRBatchRunner(
             data=self.data,
@@ -242,15 +226,15 @@ class BatchOCRDialog(QDialog):
             merge_lines=self.ocr_settings.merge_lines,
             k_factor=self.ocr_settings.k_factor,
             bbox_tolerance=self.ocr_settings.bbox_tolerance,
-            target_encoding=self.ocr_settings.output_encoding
+            target_encoding=self.ocr_settings.output_encoding,
         )
-        
+
         # Connect signals
         self.runner.signals.sample.connect(self.handle_sample)
         self.runner.signals.error.connect(self.handle_error)
         self.runner.signals.finished.connect(self.handle_finished)
         self.runner.signals.ocr_result.connect(self.handle_ocr_result)
-        
+
         # Start processing
         self.threadpool.start(self.runner)
 
@@ -276,7 +260,7 @@ class BatchOCRDialog(QDialog):
     def handle_finished(self):
         if not self.processing:  # If we were cancelled
             return
-            
+
         self.status.setText("Completed")
         self.status.setStyleSheet(
             """
@@ -325,6 +309,6 @@ class BatchOCRDialog(QDialog):
     def on_select_ocr_model(self, index: int):
         # Update pipeline with selected model
         self.pipeline.update_ocr_model(self.ocr_models[index].config)
-        
+
         # Remember the selection for future dialog instances
         BatchOCRDialog.last_selected_model_index = index

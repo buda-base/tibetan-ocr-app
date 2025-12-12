@@ -1,9 +1,10 @@
-from PySide6.QtCore import Qt, Signal, QThreadPool
+from PySide6.QtCore import Qt, QThreadPool, Signal
 from PySide6.QtWidgets import QProgressDialog, QPushButton
 
-from BDRC.Data import OCRData, OCRSettings, OCResult
-from BDRC.Inference import OCRPipeline
-from BDRC.Runner import OCRunner
+from BDRC.data import OCRData, OCResult, OCRSettings
+from BDRC.inference import OCRPipeline
+from BDRC.runner import OCRunner
+
 
 class OCRDialog(QProgressDialog):
     sign_ocr_result = Signal(OCResult)

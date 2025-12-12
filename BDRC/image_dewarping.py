@@ -8,27 +8,28 @@ This module contains functions for:
 - TPS control point calculation and optimization
 """
 
-import cv2
-import scipy
-import numpy as np
-import numpy.typing as npt
-from tps import ThinPlateSpline
 from typing import List
 
-from BDRC.Data import Line
+import cv2
+import numpy as np
+import numpy.typing as npt
+import scipy
+from tps import ThinPlateSpline
+
+from BDRC.line_detection import get_line_image
 
 
 def run_tps(image: npt.NDArray, input_pts, output_pts, add_corners=True, alpha=0.5):
     """
     Apply Thin Plate Spline transformation to dewarp an image.
-    
+
     Args:
         image: Input image to transform
         input_pts: Source control points
         output_pts: Target control points
         add_corners: Whether to add corner control points
         alpha: TPS regularization parameter
-        
+
     Returns:
         Dewarped image array
     """
@@ -43,12 +44,13 @@ def run_tps(image: npt.NDArray, input_pts, output_pts, add_corners=True, alpha=0
 
     if add_corners:
         corners = npt.NDArray(  # Add corners ctrl points
-        [
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [0.0, 1.0],
-            [1.0, 1.0],
-        ])
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [0.0, 1.0],
+                [1.0, 1.0],
+            ]
+        )
 
         corners *= [height, width]
         corners *= [height, width]
@@ -75,29 +77,29 @@ def run_tps(image: npt.NDArray, input_pts, output_pts, add_corners=True, alpha=0
 def get_global_center(slice_image: npt.NDArray, start_x: int, bbox_y: int):
     """
     Transfer coordinates of a 'local' bbox taken from a line back to the image space.
-    
+
     Args:
         slice_image: Image slice containing line segment
         start_x: Starting x-coordinate of the slice in global space
         bbox_y: Y-coordinate of bounding box in global space
-        
+
     Returns:
         Tuple of (global_x, global_y, bbox_height)
     """
     contours, _ = cv2.findContours(slice_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    
+
     # Check if contours is empty
     if not contours:
         # Return default values based on the slice_image dimensions
         center_x = slice_image.shape[1] // 2
         center_y = slice_image.shape[0] // 2
         bbox_h = slice_image.shape[0]
-        
+
         global_x = start_x + center_x
         global_y = bbox_y + center_y
-        
+
         return global_x, global_y, bbox_h
-    
+
     areas = [cv2.contourArea(x) for x in contours]
     biggest_idx = areas.index(max(areas))
     biggest_contour = contours[biggest_idx]
@@ -116,12 +118,12 @@ def get_global_center(slice_image: npt.NDArray, start_x: int, bbox_y: int):
 def check_line_tps(image: npt.NDArray, contour: npt.NDArray, slice_width: int = 40):
     """
     Check if a line contour requires TPS correction by analyzing distortion.
-    
+
     Args:
         image: Input image array
         contour: Line contour to analyze
         slice_width: Width of analysis slices
-        
+
     Returns:
         Tuple of (needs_tps, input_points, output_points, max_y_delta)
     """
@@ -131,26 +133,26 @@ def check_line_tps(image: npt.NDArray, contour: npt.NDArray, slice_width: int = 
     cv2.drawContours(mask, [contour], contourIdx=0, color=(255, 255, 255), thickness=-1)
 
     slice1_start_x = x
-    slice1_end_x = x+slice_width
+    slice1_end_x = x + slice_width
 
-    slice2_start_x = x+w//4-slice_width
-    slice2_end_x = x+w//4
+    slice2_start_x = x + w // 4 - slice_width
+    slice2_end_x = x + w // 4
 
-    slice3_start_x = x+w//2
-    slice3_end_x = x+w//2+slice_width
+    slice3_start_x = x + w // 2
+    slice3_end_x = x + w // 2 + slice_width
 
-    slice4_start_x = x+w//2+w//4
-    slice4_end_x = x+w//2+(w//4)+slice_width
+    slice4_start_x = x + w // 2 + w // 4
+    slice4_end_x = x + w // 2 + (w // 4) + slice_width
 
-    slice5_start_x = x+w-slice_width
-    slice5_end_x = x+w
+    slice5_start_x = x + w - slice_width
+    slice5_end_x = x + w
 
     # define slices along the bbox from left to right
-    slice_1 = mask[y:y+h, slice1_start_x:slice1_end_x, 0]
-    slice_2 = mask[y:y+h, slice2_start_x:slice2_end_x, 0]
-    slice_3 = mask[y:y+h, slice3_start_x:slice3_end_x, 0]
-    slice_4 = mask[y:y+h, slice4_start_x:slice4_end_x, 0]
-    slice_5 = mask[y:y+h, slice5_start_x:slice5_end_x, 0]
+    slice_1 = mask[y : y + h, slice1_start_x:slice1_end_x, 0]
+    slice_2 = mask[y : y + h, slice2_start_x:slice2_end_x, 0]
+    slice_3 = mask[y : y + h, slice3_start_x:slice3_end_x, 0]
+    slice_4 = mask[y : y + h, slice4_start_x:slice4_end_x, 0]
+    slice_5 = mask[y : y + h, slice5_start_x:slice5_end_x, 0]
 
     slice1_center_x, slice1_center_y, bbox1_h = get_global_center(slice_1, slice1_start_x, y)
     slice2_center_x, slice2_center_y, bbox2_h = get_global_center(slice_2, slice2_start_x, y)
@@ -163,7 +165,7 @@ def check_line_tps(image: npt.NDArray, contour: npt.NDArray, slice_width: int = 
 
     min_value = min(all_centers)
     max_value = max(all_centers)
-    max_ydelta = max_value-min_value
+    max_ydelta = max_value - min_value
     mean_bbox_h = np.mean(all_bboxes)
     mean_center_y = np.mean(all_centers)
 
@@ -175,7 +177,7 @@ def check_line_tps(image: npt.NDArray, contour: npt.NDArray, slice_width: int = 
             [slice2_center_y, slice2_center_x],
             [slice3_center_y, slice3_center_x],
             [slice4_center_y, slice4_center_x],
-            [slice5_center_y, slice5_center_x]
+            [slice5_center_y, slice5_center_x],
         ]
 
         output_pts = [
@@ -183,7 +185,7 @@ def check_line_tps(image: npt.NDArray, contour: npt.NDArray, slice_width: int = 
             [target_y, slice2_center_x],
             [target_y, slice3_center_x],
             [target_y, slice4_center_x],
-            [target_y, slice5_center_x]
+            [target_y, slice5_center_x],
         ]
 
         return True, input_pts, output_pts, max_ydelta
@@ -194,17 +196,18 @@ def check_line_tps(image: npt.NDArray, contour: npt.NDArray, slice_width: int = 
 def check_for_tps(image: npt.NDArray, line_contours: List[npt.NDArray]):
     """
     Check if an image requires TPS dewarping based on line distortion analysis.
-    
+
     Args:
         image: Input image array
         line_contours: List of detected line contours
-        
+
     Returns:
         Tuple of (tps_ratio, line_data_with_tps_info)
     """
     line_data = []
     for _, line_cnt in enumerate(line_contours):
-        _, y, _, _ = cv2.boundingRect(line_cnt)
+        # This is commented out, since y is not used
+        # _, y, _, _ = cv2.boundingRect(line_cnt)
         # TODO: store input and output points to avoid running that step twice
         tps_status, input_pts, output_pts, max_yd = check_line_tps(image, line_cnt)
 
@@ -213,7 +216,7 @@ def check_for_tps(image: npt.NDArray, line_contours: List[npt.NDArray]):
             "tps": tps_status,
             "input_pts": input_pts,
             "output_pts": output_pts,
-            "max_yd": max_yd
+            "max_yd": max_yd,
         }
 
         line_data.append(line)
@@ -227,13 +230,13 @@ def check_for_tps(image: npt.NDArray, line_contours: List[npt.NDArray]):
 def get_global_tps_line(line_data: List):
     """
     Find the most representative curved line for global TPS transformation.
-    
-    A simple approach to the most representative curved line in the image assuming 
+
+    A simple approach to the most representative curved line in the image assuming
     that the overall distortion is relatively uniform.
-    
+
     Args:
         line_data: List of line analysis data with TPS information
-        
+
     Returns:
         Index of the best line for global TPS transformation
     """
@@ -246,7 +249,7 @@ def get_global_tps_line(line_data: List):
             all_y_deltas.append(0.0)
 
     mean_delta = np.mean(all_y_deltas)
-    best_diff = max(all_y_deltas) # just setting it to the highest value
+    best_diff = max(all_y_deltas)  # just setting it to the highest value
     best_y = None
 
     for yd in all_y_deltas:
@@ -264,12 +267,12 @@ def get_global_tps_line(line_data: List):
 def apply_global_tps(image: npt.NDArray, line_mask: npt.NDArray, line_data: List):
     """
     Apply global TPS transformation to dewarp an entire image.
-    
+
     Args:
         image: Input image array
         line_mask: Binary mask of detected lines
         line_data: List of line analysis data with TPS information
-        
+
     Returns:
         Tuple of (dewarped_image, dewarped_mask)
     """
@@ -277,7 +280,8 @@ def apply_global_tps(image: npt.NDArray, line_mask: npt.NDArray, line_data: List
     output_pts = line_data[best_idx]["output_pts"]
     input_pts = line_data[best_idx]["input_pts"]
 
-    assert input_pts is not None and output_pts is not None
+    if input_pts is None or output_pts is None:
+        raise ValueError("input_pts and output_pts must not be None when tps is True")
 
     warped_img = run_tps(image, output_pts, input_pts)
     warped_mask = run_tps(line_mask, output_pts, input_pts)
@@ -288,18 +292,17 @@ def apply_global_tps(image: npt.NDArray, line_mask: npt.NDArray, line_data: List
 def get_line_images_via_local_tps(image: npt.NDArray, line_data: list, k_factor: float = 1.7):
     """
     Extract line images using local TPS transformations for each line.
-    
+
     Args:
         image: Input image array
         line_data: List of line analysis data with TPS information
         k_factor: Scaling factor for line extraction
-        
+
     Returns:
         List of extracted and dewarped line images
     """
     # Import get_line_image locally to avoid circular dependency
-    from BDRC.line_detection import get_line_image
-    
+
     default_k_factor = k_factor
     current_k = default_k_factor
     line_images = []
@@ -309,7 +312,8 @@ def get_line_images_via_local_tps(image: npt.NDArray, line_data: list, k_factor:
             output_pts = line["output_pts"]
             input_pts = line["input_pts"]
 
-            assert input_pts is not None and output_pts is not None
+            if input_pts is None or output_pts is None:
+                raise ValueError("input_pts and output_pts must not be None when tps is True")
 
             tmp_mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
             cv2.drawContours(tmp_mask, [line["contour"]], -1, (255, 255, 255), -1)
@@ -319,8 +323,9 @@ def get_line_images_via_local_tps(image: npt.NDArray, line_data: list, k_factor:
 
             _, _, _, bbox_h = cv2.boundingRect(line["contour"])
 
-            line_img, adapted_k = get_line_image(warped_img, warped_mask, bbox_h, bbox_tolerance=2.0,
-                                                 k_factor=current_k)
+            line_img, adapted_k = get_line_image(
+                warped_img, warped_mask, bbox_h, bbox_tolerance=2.0, k_factor=current_k
+            )
             line_images.append(line_img)
 
             if current_k != adapted_k:

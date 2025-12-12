@@ -49,14 +49,16 @@ class AuditLogger:
 
     def log_stage_end(self, stage: str, status: str = "success", metadata: Optional[Dict[str, Any]] = None):
         """Log the end of a processing stage."""
-        self.log("INFO", f"Completed stage: {stage}", stage=stage, operation="stage_end",
-                 status=status, metadata=metadata)
+        self.log(
+            "INFO", f"Completed stage: {stage}", stage=stage, operation="stage_end", status=status, metadata=metadata
+        )
 
     def log_operation(self, operation: str, stage: Optional[str] = None, status: str = "success"):
         """Log a single operation."""
         self.log("INFO", f"Operation: {operation}", stage=stage, operation=operation, status=status)
 
-    def log_error(self, error_msg: str, stage: Optional[str] = None,
-                  operation: Optional[str] = None, exc_info: bool = True):
+    def log_error(
+        self, error_msg: str, stage: Optional[str] = None, operation: Optional[str] = None, exc_info: bool = True
+    ):
         """Log an error."""
         self.log("ERROR", error_msg, stage=stage, operation=operation, status="failure", exc_info=exc_info)

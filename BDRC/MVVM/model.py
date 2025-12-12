@@ -5,47 +5,35 @@ This module contains the core model classes that handle data management,
 settings persistence, and business logic for the OCR application.
 """
 
-import os
 import json
-import pyewts
-import numpy.typing as npt
-
-from uuid import UUID
+import os
 from glob import glob
-from typing import List, Dict
-from BDRC.Utils import create_dir, import_local_models
-from BDRC.Data import (
+from typing import Dict, List
+from uuid import UUID
+
+import numpy.typing as npt
+import pyewts
+
+from BDRC.data import (
     AppSettings,
     Encoding,
     LayoutDetectionConfig,
-    LineDetectionConfig,
-    OCRData,
     Line,
+    LineDetectionConfig,
     LineMode,
+    OCRData,
     OCRLine,
     OCRLineUpdate,
-    OCRModelConfig,
     OCRSettings,
-    OCRModel,
-    OpStatus
 )
-from Config import (
-    CHARSETENCODER,
-    ENCODINGS,
-    LANGUAGES,
-    LINE_MERGE,
-    LINE_MODES,
-    LINE_SORTING,
-    OCRARCHITECTURE,
-    THEMES,
-    TPS_MODE
-)
+from BDRC.utils import create_dir, import_local_models
+from Config import ENCODINGS, LANGUAGES, LINE_MERGE, LINE_MODES, LINE_SORTING, THEMES, TPS_MODE
 
 
 class SettingsModel:
     """
     Manages application and OCR settings, model loading, and configuration persistence.
-    
+
     This class handles loading and saving user preferences, OCR model management,
     and provides access to configuration data for line and layout detection models.
     """
@@ -53,7 +41,7 @@ class SettingsModel:
     def __init__(self, user_directory: str, execution_directory: str):
         """
         Initialize the settings model with directory paths and load configurations.
-        
+
         Args:
             user_directory: Path to user data directory for settings storage
             execution_directory: Path to application execution directory
@@ -86,8 +74,7 @@ class SettingsModel:
                     print(f"Loaded {len(ocr_models)} models from user-specified path: {self.app_settings.model_path}")
             except BaseException as e:
                 print(f"Error loading models from user path: {str(e)}")
-                pass
-        
+
         # If no models were loaded from user path, try the bundled models
         if not models_loaded and os.path.isdir(self.bundled_models_path):
             try:
@@ -97,11 +84,10 @@ class SettingsModel:
                     print(f"Loaded {len(ocr_models)} models from bundled path: {self.bundled_models_path}")
             except BaseException as e:
                 print(f"Error loading bundled models: {str(e)}")
-                pass
 
     def clear_temp_files(self):
         """Remove all temporary files from the temp directory."""
-         # just deleting all tmp files on startup
+        # just deleting all tmp files on startup
 
         if os.path.isdir(self.tmp_dir):
             tmp_files = glob(f"{self.tmp_dir}/*")
@@ -109,15 +95,15 @@ class SettingsModel:
             if len(tmp_files) > 0:
                 for file in tmp_files:
                     os.remove(file)
-    
+
     def get_line_model(self):
         """
         Get the appropriate model configuration based on current line mode setting.
-        
+
         Returns:
             LineDetectionConfig or LayoutDetectionConfig based on line_mode setting
         """
-        if self.ocr_settings.line_mode == LineMode.Line:
+        if self.ocr_settings.line_mode == LineMode.LINE:
             return self.line_model_config
         else:
             return self.layout_model_config
@@ -133,11 +119,11 @@ class SettingsModel:
     def create_default_app_config(self, user_dir: str):
         """Create and save default application configuration file."""
         settings = {
-                "model_path": os.path.join(self.user_directory, "Models"),
-                "language": "en",
-                "encoding": "unicode",
-                "theme": "dark"
-            }
+            "model_path": os.path.join(self.user_directory, "Models"),
+            "language": "en",
+            "encoding": "unicode",
+            "theme": "dark",
+        }
         app_settings_file = os.path.join(user_dir, "app_settings.json")
         with open(app_settings_file, "w", encoding="utf-8") as f:
             json.dump(settings, f, ensure_ascii=False, indent=1)
@@ -153,7 +139,7 @@ class SettingsModel:
             "k_factor": 2.5,
             "bbox_tolerance": 3.0,
             "tps": "global",
-            "output_encoding": "unicode"
+            "output_encoding": "unicode",
         }
 
         ocr_settings_file = os.path.join(user_dir, "ocr_settings.json")
@@ -163,10 +149,10 @@ class SettingsModel:
     def read_settings(self, user_dir: str):
         """
         Load application and OCR settings from configuration files.
-        
+
         Args:
             user_dir: Directory containing configuration files
-            
+
         Returns:
             Tuple of (AppSettings, OCRSettings) loaded from files
         """
@@ -188,10 +174,7 @@ class SettingsModel:
         _theme = app_json_settings["theme"]
 
         app_settings = AppSettings(
-            model_path=_model_path,
-            language=LANGUAGES[_lang_code],
-            encoding=ENCODINGS[_encoding],
-            theme=THEMES[_theme]
+            model_path=_model_path, language=LANGUAGES[_lang_code], encoding=ENCODINGS[_encoding], theme=THEMES[_theme]
         )
 
         file = open(ocr_settings_file, encoding="utf-8")
@@ -219,11 +202,11 @@ class SettingsModel:
         )
 
         return app_settings, ocr_settings
-  
+
     def save_app_settings(self, settings: AppSettings):
         """
         Save application settings to configuration file.
-        
+
         Args:
             settings: AppSettings instance to save
         """
@@ -232,22 +215,16 @@ class SettingsModel:
         _encoding = [x for x in ENCODINGS if ENCODINGS[x] == settings.encoding][0]
         _theme = [x for x in THEMES if THEMES[x] == settings.theme][0]
 
-        _settings = {
-                    "model_path": _model_path,
-                    "language": _language,
-                    "encoding": _encoding,
-                    "theme": _theme
-                }
+        _settings = {"model_path": _model_path, "language": _language, "encoding": _encoding, "theme": _theme}
 
         app_settings_file = os.path.join(self.user_directory, "app_settings.json")
         with open(app_settings_file, "w", encoding="utf-8") as f:
             json.dump(_settings, f, ensure_ascii=False, indent=1)
 
-
     def save_ocr_settings(self, settings: OCRSettings):
         """
         Save OCR settings to configuration file.
-        
+
         Args:
             settings: OCRSettings instance to save
         """
@@ -277,10 +254,10 @@ class SettingsModel:
     def read_line_model_config(self, target_dir: str) -> LineDetectionConfig:
         """
         Load line detection model configuration from directory.
-        
+
         Args:
             target_dir: Directory containing model configuration
-            
+
         Returns:
             LineDetectionConfig with model parameters
         """
@@ -295,14 +272,14 @@ class SettingsModel:
         config = LineDetectionConfig(onnx_model_file, patch_size)
 
         return config
-    
+
     def read_layout_model_config(self, target_dir: str) -> LayoutDetectionConfig:
         """
         Load layout detection model configuration from directory.
-        
+
         Args:
             target_dir: Directory containing model configuration
-            
+
         Returns:
             LayoutDetectionConfig with model parameters
         """
@@ -323,11 +300,11 @@ class SettingsModel:
 class OCRDataModel:
     """
     Manages OCR data for multiple images including text results and metadata.
-    
+
     This class stores and manages OCRData instances, handles text encoding conversions,
     and provides methods for updating OCR results and line information.
     """
-    
+
     def __init__(self):
         """Initialize the OCR data model with empty data storage and text converter."""
         self.data = {}
@@ -336,7 +313,7 @@ class OCRDataModel:
     def add_data(self, data: Dict[UUID, OCRData]):
         """
         Replace all stored OCR data with new data.
-        
+
         Args:
             data: Dictionary mapping UUIDs to OCRData instances
         """
@@ -346,7 +323,7 @@ class OCRDataModel:
     def get_data(self):
         """
         Get all OCR data as a list.
-        
+
         Returns:
             List of all OCRData instances
         """
@@ -357,12 +334,10 @@ class OCRDataModel:
         """Remove all stored OCR data."""
         self.data.clear()
 
-    def add_page_data(
-        self, guid: UUID, lines: List[Line], preview_image: npt.NDArray, angle: float
-    ) -> None:
+    def add_page_data(self, guid: UUID, lines: List[Line], preview_image: npt.NDArray, angle: float) -> None:
         """
         Update line detection results for a specific page.
-        
+
         Args:
             guid: Unique identifier for the page
             lines: Detected text lines
@@ -376,7 +351,7 @@ class OCRDataModel:
     def add_ocr_text(self, guid: UUID, ocr_lines: List[OCRLine]):
         """
         Update OCR text results for a specific page.
-        
+
         Args:
             guid: Unique identifier for the page
             ocr_lines: List of recognized text lines
@@ -386,7 +361,7 @@ class OCRDataModel:
     def delete_image(self, guid: UUID):
         """
         Remove OCR data for a specific image.
-        
+
         Args:
             guid: Unique identifier for the image to remove
         """
@@ -395,24 +370,24 @@ class OCRDataModel:
     def convert_wylie_unicode(self, guid: UUID):
         """
         Convert text encoding between Wylie and Unicode for a specific page.
-        
+
         Args:
             guid: Unique identifier for the page to convert
         """
         for ocr_line in self.data[guid].ocr_lines:
-            if ocr_line.encoding == Encoding.Wylie:
+            if ocr_line.encoding == Encoding.WYLIE:
                 new_text = self.converter.toUnicode(ocr_line.text)
                 ocr_line.text = new_text
-                ocr_line.encoding = Encoding.Unicode
+                ocr_line.encoding = Encoding.UNICODE
             else:
                 new_text = self.converter.toWylie(ocr_line.text)
                 ocr_line.text = new_text
-                ocr_line.encoding = Encoding.Wylie
+                ocr_line.encoding = Encoding.WYLIE
 
     def update_ocr_line(self, ocr_line_update: OCRLineUpdate):
         """
         Update a specific OCR text line with new content.
-        
+
         Args:
             ocr_line_update: Update containing page GUID and modified OCR line
         """

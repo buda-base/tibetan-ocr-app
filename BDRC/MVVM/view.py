@@ -1,42 +1,64 @@
-import cv2
-import sys
-import re
-import platform
-import os
-from uuid import UUID
-from typing import Dict, List
-from PySide6.QtCore import Signal, Qt, QThreadPool, QThread
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QSplitter, QLabel, QMessageBox, QFileDialog, QProgressDialog, QApplication, QToolTip
-from PySide6.QtGui import QMovie, QClipboard
-from pdf2image import convert_from_path, pdfinfo_from_path
-from BDRC.Styles import DARK
-from BDRC.Inference import OCRPipeline
-from BDRC.Data import OpStatus, Platform, OCRData, OCRModel, OCResult
-from BDRC.Utils import build_ocr_data, get_filename, create_dir
-from BDRC.Widgets.Dialogs import NotificationDialog, ImportFilesProgress, PDFImportDialog, TextInputDialog, ExportDialog, SettingsDialog, BatchOCRDialog
-from BDRC.utils.pdf_extract import extract_images_from_pdf
-from BDRC.Widgets.Layout import HeaderTools, ImageGallery, Canvas, TextView
-from BDRC.MVVM.viewmodel import DataViewModel, SettingsViewModel
 import logging
+import os
+import platform
+import sys
+from typing import Dict, List
+from uuid import UUID
+
+import cv2
+from pdf2image import convert_from_path, pdfinfo_from_path
+from PySide6.QtCore import Qt, QThread, QThreadPool, Signal
+from PySide6.QtGui import QClipboard
+from PySide6.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QHBoxLayout,
+    QMessageBox,
+    QProgressDialog,
+    QSplitter,
+    QToolTip,
+    QVBoxLayout,
+    QWidget,
+)
+
+from BDRC.data import OCRData, OCResult, OCRModel, OpStatus, Platform
+from BDRC.inference import OCRPipeline
+from BDRC.MVVM.viewmodel import DataViewModel, SettingsViewModel
+from BDRC.pdf_utils.pdf_extract import extract_images_from_pdf
+from BDRC.styles import DARK
+from BDRC.utils import build_ocr_data, create_dir
+from BDRC.widgets.dialogs import (
+    BatchOCRDialog,
+    ExportDialog,
+    ImportFilesProgress,
+    NotificationDialog,
+    PDFImportDialog,
+    SettingsDialog,
+)
+from BDRC.widgets.layout import Canvas, HeaderTools, ImageGallery, TextView
+
 
 # Thread for asynchronous OCR
 class _OCRThread(QThread):
     ocr_finished = Signal(object, object, object)  # status, result, guid
+
     def __init__(self, pipeline, img, settings, guid, parent=None):
         super().__init__(parent)
         self.pipeline = pipeline
         self.img = img
         self.settings = settings
         self.guid = guid
+
     def run(self):
         status, result = self.pipeline.run_ocr(
             self.img,
             k_factor=self.settings.k_factor,
             bbox_tolerance=self.settings.bbox_tolerance,
             merge_lines=self.settings.merge_lines,
-            use_tps=self.settings.dewarping
+            use_tps=self.settings.dewarping,
         )
         self.ocr_finished.emit(status, result, self.guid)
+
 
 class MainView(QWidget):
     s_handle_import = Signal()
@@ -47,7 +69,9 @@ class MainView(QWidget):
     s_run_batch_ocr = Signal()
     s_handle_settings = Signal()
 
-    def __init__(self, data_view: DataViewModel, settings_view: SettingsViewModel, platform: Platform, translation_manager=None):
+    def __init__(
+        self, data_view: DataViewModel, settings_view: SettingsViewModel, platform: Platform, translation_manager=None
+    ):
         super().__init__()
         self.setObjectName("MainView")
         self.setContentsMargins(0, 0, 0, 0)
@@ -58,9 +82,17 @@ class MainView(QWidget):
         self.resource_dir = self._settings_view.get_execution_dir()
         self.default_font = self._settings_view.get_default_font_path()
 
-        self.header_tools = HeaderTools(self._data_view, self._settings_view, translation_manager=self.translation_manager)
-        self.canvas = Canvas(self.resource_dir )
-        self.text_view = TextView(platform=self.platform, dataview=self._data_view, execution_dir=self.resource_dir, font_path=self.default_font, translation_manager=self.translation_manager)
+        self.header_tools = HeaderTools(
+            self._data_view, self._settings_view, translation_manager=self.translation_manager
+        )
+        self.canvas = Canvas(self.resource_dir)
+        self.text_view = TextView(
+            platform=self.platform,
+            dataview=self._data_view,
+            execution_dir=self.resource_dir,
+            font_path=self.default_font,
+            translation_manager=self.translation_manager,
+        )
         self.v_splitter = QSplitter(Qt.Orientation.Vertical)
         self.v_splitter.setHandleWidth(10)
         self.v_splitter.addWidget(self.canvas)
@@ -163,7 +195,7 @@ class MainView(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if hasattr(self, '_overlay'):
+        if hasattr(self, "_overlay"):
             self._overlay.setGeometry(self.rect())
 
     def run_ocr(self, guid: UUID):
@@ -189,7 +221,7 @@ class MainView(QWidget):
 
     def _on_thread_finished(self, status, result, guid):
         # close progress & restore UI
-        if hasattr(self, '_progress_dialog'):
+        if hasattr(self, "_progress_dialog"):
             self._progress_dialog.close()
         self.setEnabled(True)
         # handle OCR result
@@ -202,11 +234,13 @@ class MainView(QWidget):
 
 
 class AppView(QWidget):
-    def __init__(self,
-                 dataview_model: DataViewModel,
-                 settingsview_model: SettingsViewModel,
-                 platform: Platform,
-                 translation_manager=None):
+    def __init__(
+        self,
+        dataview_model: DataViewModel,
+        settingsview_model: SettingsViewModel,
+        platform: Platform,
+        translation_manager=None,
+    ):
         super().__init__()
 
         self.setObjectName("MainWindow")
@@ -222,7 +256,9 @@ class AppView(QWidget):
         self.resource_dir = self._settingsview_model.get_execution_dir()
 
         self.image_gallery = ImageGallery(self._dataview_model, self.threadpool, self.resource_dir)
-        self.main_container = MainView(self._dataview_model, self._settingsview_model, self.platform, self.translation_manager)
+        self.main_container = MainView(
+            self._dataview_model, self._settingsview_model, self.platform, self.translation_manager
+        )
         self.h_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.h_splitter.setHandleWidth(10)
         self.h_splitter.setContentsMargins(0, 0, 0, 0)
@@ -253,10 +289,7 @@ class AppView(QWidget):
         ocr_model = self._settingsview_model.get_current_ocr_model()
 
         if ocr_model is not None:
-            self.ocr_pipeline = OCRPipeline(
-                self.platform,
-                ocr_model.config,
-                line_config)
+            self.ocr_pipeline = OCRPipeline(self.platform, ocr_model.config, line_config)
         else:
             self.ocr_pipeline = None
 
@@ -267,37 +300,37 @@ class AppView(QWidget):
 
     def handle_file_import(self):
         import uuid
-        
+
         file_dialog = QFileDialog()
         file_dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
         file_dialog.setNameFilter("Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff);;PDF Files (*.pdf);;All Files (*)")
-        
+
         if file_dialog.exec():
             files = file_dialog.selectedFiles()
-            
+
             if not files:
                 return
-                
+
             # Create a temporary directory for imported files
             import_dir = os.path.join(os.path.expanduser("~"), ".bdrc_ocr", "imports")
             create_dir(import_dir)
-            
+
             try:
                 results = {}
-                
+
                 for file_path in files:
                     file_extension = os.path.splitext(file_path)[1].lower()
-                    
-                    if file_extension == '.pdf':
+
+                    if file_extension == ".pdf":
                         # Show PDF import options dialog
                         pdf_dialog = PDFImportDialog(self)
                         if pdf_dialog.exec():
                             import_method = pdf_dialog.get_selected_method()
-                            
+
                             # Create a unique directory for this PDF
                             pdf_dir = os.path.join(import_dir, str(uuid.uuid4()))
                             create_dir(pdf_dir)
-                            
+
                             if import_method == PDFImportDialog.IMPORT_EMBEDDED_IMAGES:
                                 # Extract embedded images using pypdf
                                 self.handle_pdf_extract(file_path, pdf_dir, results)
@@ -307,151 +340,145 @@ class AppView(QWidget):
                     else:
                         # Handle regular image files
                         file_id = uuid.uuid4()
-                        file_name = get_filename(file_path)
-                        
+
                         data = build_ocr_data(file_id, file_path)
                         results[file_id] = data
-                
+
                 if results:
                     self.import_files(results)
-                    
+
             except Exception as e:
                 error_dialog = NotificationDialog("Error", f"An error occurred while importing files: {e}")
                 error_dialog.exec_()
-                
+
     def handle_pdf_import(self):
         """Handle importing PDF files."""
         import uuid
-        
+
         file_dialog = QFileDialog()
         file_dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
         file_dialog.setNameFilter("PDF Files (*.pdf)")
-        
+
         if file_dialog.exec():
             files = file_dialog.selectedFiles()
-            
+
             if not files:
                 return
-                
+
             # Create a temporary directory for imported files
             import_dir = os.path.join(os.path.expanduser("~"), ".bdrc_ocr", "imports")
             create_dir(import_dir)
-            
+
             try:
                 results = {}
-                
+
                 for file_path in files:
                     # Show PDF import options dialog
                     pdf_dialog = PDFImportDialog(self)
                     if pdf_dialog.exec():
                         import_method = pdf_dialog.get_selected_method()
-                        
+
                         # Create a unique directory for this PDF
                         pdf_dir = os.path.join(import_dir, str(uuid.uuid4()))
                         create_dir(pdf_dir)
-                        
+
                         if import_method == PDFImportDialog.IMPORT_EMBEDDED_IMAGES:
                             # Extract embedded images using pypdf
                             self.handle_pdf_extract(file_path, pdf_dir, results)
                         else:
                             # Convert pages to images using pdf2image
                             self.convert_pdf_to_images(file_path, pdf_dir, results)
-                
+
                 if results:
                     self.import_files(results)
                 else:
                     NotificationDialog("No images found", "No images could be extracted from the selected PDF.").exec()
-                    
+
             except Exception as e:
                 error_dialog = NotificationDialog("Error", f"An error occurred while importing PDF files: {e}")
                 error_dialog.exec_()
-                
+
     def handle_pdf_extract(self, file_path, output_dir, results):
         """Extract embedded images from PDF using pypdf."""
         import uuid
-        
+
         try:
             # Create progress dialog
             progress = ImportFilesProgress("Extracting images from PDF...")
             progress.setWindowModality(Qt.WindowModality.WindowModal)
             progress.show()
-            
+
             # Extract images from PDF
             image_paths, total_pages = extract_images_from_pdf(file_path, output_dir)
-            
+
             # Update progress dialog
             progress.setMaximum(len(image_paths))
-            
+
             # Process each extracted image
             for i, image_path in enumerate(image_paths):
                 file_id = uuid.uuid4()
-                file_name = os.path.basename(image_path)
-                
+
                 data = build_ocr_data(file_id, image_path)
                 results[file_id] = data
-                
+
                 # Update progress
                 progress.setValue(i + 1)
                 progress.setLabelText(f"Processing image {i + 1} of {len(image_paths)}...")
-                
+
             progress.close()
-            
+
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to extract images from PDF: {e}")
-                
+
     def convert_pdf_to_images(self, file_path, output_dir, results):
         """Convert PDF pages to images using pdf2image."""
         import uuid
-        
+
         try:
             # Get PDF info
             poppler_path = self.get_poppler_path()
-            
+
             logging.info("getting number of pages of PDF")
             pdf_info = pdfinfo_from_path(file_path, poppler_path=poppler_path)
-            total_pages = pdf_info['Pages']
+            total_pages = pdf_info["Pages"]
             logging.info(f"found {total_pages} pages")
-            
+
             file_n = os.path.splitext(os.path.basename(file_path))[0]
-            
+
             # Create progress dialog
             progress = ImportFilesProgress("Reading PDF file...", max_length=total_pages)
             progress.setWindowModality(Qt.WindowModality.WindowModal)
             progress.show()
-            
+
             # Process PDF in batches to avoid memory issues with large PDFs
             batch_size = 5
             for batch_start in range(1, total_pages + 1, batch_size):
                 batch_end = min(batch_start + batch_size - 1, total_pages)
-                
+
                 progress.setLabelText(f"Converting pages {batch_start} to {batch_end}...")
-                
+
                 # Convert batch of pages
                 pages = convert_from_path(
-                    file_path, 
-                    dpi=300, 
-                    first_page=batch_start, 
-                    last_page=batch_end,
-                    poppler_path=poppler_path
+                    file_path, dpi=300, first_page=batch_start, last_page=batch_end, poppler_path=poppler_path
                 )
-                
+
                 # Save each page
                 for i, page in enumerate(pages):
                     page_num = batch_start + i
                     progress.setValue(page_num)
-                    
+
                     # Save the page as an image
                     image_path = os.path.join(output_dir, f"{file_n} - page {page_num}.png")
                     page.save(image_path, "PNG")
-                    
+
                     # Create OCR data for this page
                     file_id = uuid.uuid4()
-                    
+
                     data = build_ocr_data(file_id, image_path)
                     results[file_id] = data
-            
+
             progress.close()
-            
+
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to import PDF: {e}")
 
@@ -467,16 +494,12 @@ class AppView(QWidget):
                 ocred_lines += 1
 
         if not len(_ocr_data) > 0:
-            info_box = NotificationDialog(
-                "Saving Annotations",
-                "The current project contains no data."
-            )
+            info_box = NotificationDialog("Saving Annotations", "The current project contains no data.")
             info_box.exec()
 
         elif not ocred_lines > 0:
             info_box = NotificationDialog(
-                "Saving Annotations",
-                "The current contains no OCR data. Please run OCR first."
+                "Saving Annotations", "The current contains no OCR data. Please run OCR first."
             )
             info_box.exec()
 
@@ -514,7 +537,7 @@ class AppView(QWidget):
         # restore UI
         self.setEnabled(True)
         # close progress dialog
-        if hasattr(self, '_progress_dialog'):
+        if hasattr(self, "_progress_dialog"):
             self._progress_dialog.close()
         if status == OpStatus.SUCCESS:
             mask, line_data, page_text, angle = result
@@ -536,14 +559,14 @@ class AppView(QWidget):
                     if model.config == self.ocr_pipeline.ocr_model_config:
                         current_model = model
                         break
-            
+
             batch_dialog = BatchOCRDialog(
                 data=_data,
                 ocr_pipeline=self.ocr_pipeline,
                 ocr_models=self._settingsview_model.get_ocr_models(),
                 ocr_settings=self._settingsview_model.get_ocr_settings(),
                 threadpool=self.threadpool,
-                current_model=current_model  # Pass the currently selected model
+                current_model=current_model,  # Pass the currently selected model
             )
             batch_dialog.sign_ocr_result.connect(self.update_ocr_result)
 
@@ -581,7 +604,7 @@ class AppView(QWidget):
         self._settingsview_model.save_app_settings(app_settings)
         self._settingsview_model.save_ocr_settings(ocr_settings)
         self._settingsview_model.update_ocr_models(ocr_models)
-        
+
         current_line_config = self._settingsview_model.get_line_model()
 
         if self.ocr_pipeline is not None:
@@ -603,11 +626,11 @@ class AppView(QWidget):
             # Collect base dirs for onefile and dev modes
             bases = []
             # Nuitka onefile temp extraction
-            tmp = os.environ.get('NUITKA_ONEFILE_TEMP')
+            tmp = os.environ.get("NUITKA_ONEFILE_TEMP")
             if tmp:
                 bases.append(tmp)
             # PyInstaller extraction
-            if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
                 bases.append(sys._MEIPASS)
             # Executable directory
             exe_dir = os.path.dirname(sys.executable)
@@ -615,41 +638,43 @@ class AppView(QWidget):
             # CWD
             bases.append(os.getcwd())
             # Dev project root
-            bases.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+            bases.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
 
             # Find pdfinfo in any base
             for base in bases:
-                pdfinfo = os.path.join(base, 'poppler', 'bin', 'pdfinfo')
-                if platform.system() == 'Windows':
-                    pdfinfo += '.exe'
+                pdfinfo = os.path.join(base, "poppler", "bin", "pdfinfo")
+                if platform.system() == "Windows":
+                    pdfinfo += ".exe"
                 if os.path.exists(pdfinfo):
-                    poppler_bin = os.path.join(base, 'poppler', 'bin')
+                    poppler_bin = os.path.join(base, "poppler", "bin")
                     self._poppler_path = poppler_bin
                     print(f"Found Poppler at: {poppler_bin}")
                     # Update PATH and DYLD_LIBRARY_PATH
-                    os.environ['PATH'] = poppler_bin + os.pathsep + os.environ.get('PATH', '')
-                    if platform.system() == 'Darwin':
-                        lib_dir = os.path.join(base, 'poppler', 'lib')
-                        os.environ['DYLD_LIBRARY_PATH'] = lib_dir + os.pathsep + os.environ.get('DYLD_LIBRARY_PATH', '')
+                    os.environ["PATH"] = poppler_bin + os.pathsep + os.environ.get("PATH", "")
+                    if platform.system() == "Darwin":
+                        lib_dir = os.path.join(base, "poppler", "lib")
+                        os.environ["DYLD_LIBRARY_PATH"] = lib_dir + os.pathsep + os.environ.get("DYLD_LIBRARY_PATH", "")
                     return poppler_bin
 
             # Not found at expected paths; try fallback recursive search under bases
-            target = 'pdfinfo.exe' if platform.system() == 'Windows' else 'pdfinfo'
+            target = "pdfinfo.exe" if platform.system() == "Windows" else "pdfinfo"
             for base in bases:
                 for root, dirs, files in os.walk(base):
                     if target in files:
                         poppler_bin = root
                         self._poppler_path = poppler_bin
                         print(f"Found Poppler via fallback at: {poppler_bin}")
-                        os.environ['PATH'] = poppler_bin + os.pathsep + os.environ.get('PATH', '')
-                        if platform.system() == 'Darwin':
-                            lib_dir = os.path.join(os.path.dirname(poppler_bin), 'lib')
-                            os.environ['DYLD_LIBRARY_PATH'] = lib_dir + os.pathsep + os.environ.get('DYLD_LIBRARY_PATH', '')
+                        os.environ["PATH"] = poppler_bin + os.pathsep + os.environ.get("PATH", "")
+                        if platform.system() == "Darwin":
+                            lib_dir = os.path.join(os.path.dirname(poppler_bin), "lib")
+                            os.environ["DYLD_LIBRARY_PATH"] = (
+                                lib_dir + os.pathsep + os.environ.get("DYLD_LIBRARY_PATH", "")
+                            )
                         return poppler_bin
             # Final failure: show attempted base directories
-            checked = '\n'.join(bases)
-            QMessageBox.critical(self, 'Error', f"Poppler binaries not found. Checked:\n{checked}")
+            checked = "\n".join(bases)
+            QMessageBox.critical(self, "Error", f"Poppler binaries not found. Checked:\n{checked}")
             return None
         except Exception as e:
-            QMessageBox.critical(self, 'Error', f"Error finding Poppler: {e}")
+            QMessageBox.critical(self, "Error", f"Error finding Poppler: {e}")
             return None

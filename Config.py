@@ -1,14 +1,14 @@
-from BDRC.Data import (
+from BDRC.data import (
+    CharsetEncoder,
     Encoding,
     ExportFormat,
     Language,
-    Theme,
+    LineMerge,
     LineMode,
-    LineMerge, 
     LineSorting,
+    OCRArchitecture,
+    Theme,
     TPSMode,
-    CharsetEncoder,
-    OCRArchitecture
 )
 
 """
@@ -25,58 +25,30 @@ COLOR_DICT = {
     "pagenr": "0, 100, 15",
     "header": "255, 0, 0",
     "footer": "255, 255, 100",
-    "line": "0, 100, 255"
+    "line": "0, 100, 255",
 }
 
 LANGUAGES = {
-    "en": Language.English,
-    "de": Language.German,
-    "fr": Language.French,
-    "bo": Language.Tibetan,
-    "ch": Language.Chinese
+    "en": Language.ENGLISH,
+    "de": Language.GERMAN,
+    "fr": Language.FRENCH,
+    "bo": Language.TIBETAN,
+    "ch": Language.CHINESE,
 }
 
-ENCODINGS = {
-    "unicode": Encoding.Unicode,
-    "wylie": Encoding.Wylie
-}
+ENCODINGS = {"unicode": Encoding.UNICODE, "wylie": Encoding.WYLIE}
 
-CHARSETENCODER = {
-    "wylie": CharsetEncoder.Wylie,
-    "stack": CharsetEncoder.Stack
-}
+CHARSETENCODER = {"wylie": CharsetEncoder.WYLIE, "stack": CharsetEncoder.STACK}
 
-OCRARCHITECTURE = {
-    "Easter2": OCRArchitecture.Easter2,
-    "CRNN": OCRArchitecture.CRNN
-}
-THEMES = {
-    "dark": Theme.Dark,
-    "light": Theme.Light
-}
+OCRARCHITECTURE = {"Easter2": OCRArchitecture.EASTER2, "CRNN": OCRArchitecture.CRNN}
+THEMES = {"dark": Theme.DARK, "light": Theme.LIGHT}
 
-EXPORTERS = {
-    "xml": ExportFormat.XML,
-    "json": ExportFormat.JSON,
-    "text": ExportFormat.Text
-}
+EXPORTERS = {"xml": ExportFormat.XML, "json": ExportFormat.JSON, "text": ExportFormat.TXT}
 
-LINE_MODES = {
-    "line": LineMode.Line,
-    "layout": LineMode.Layout
-}
+LINE_MODES = {"line": LineMode.LINE, "layout": LineMode.LAYOUT}
 
-LINE_MERGE = {
-    "merge": LineMerge.Merge,
-    "stack": LineMerge.Stack
-}
+LINE_MERGE = {"merge": LineMerge.MERGE, "stack": LineMerge.STACK}
 
-LINE_SORTING = {
-    "threshold": LineSorting.Threshold,
-    "peaks": LineSorting.Peaks
-}
+LINE_SORTING = {"threshold": LineSorting.THRESHOLD, "peaks": LineSorting.PEAKS}
 
-TPS_MODE = {
-    "local": TPSMode.LOCAL,
-    "global": TPSMode.GLOBAL
-}
+TPS_MODE = {"local": TPSMode.LOCAL, "global": TPSMode.GLOBAL}

@@ -57,10 +57,9 @@ class ArtifactManager:
         return self._ensure_subdir("results")
 
     def _add_to_manifest(self, name: str, artifact_type: str, path: str):
-        self.manifest.append({
-            "name": name, "type": artifact_type, "path": path,
-            "timestamp": datetime.now().isoformat()
-        })
+        self.manifest.append(
+            {"name": name, "type": artifact_type, "path": path, "timestamp": datetime.now().isoformat()}
+        )
 
     def save_config(self):
         """Save job configuration to config.json."""
@@ -103,8 +102,9 @@ class ArtifactManager:
         """Generate and save the artifact manifest."""
         path = self.job_dir / "manifest.json"
         with open(path, "w", encoding="utf-8") as f:
-            json.dump({"job_id": self.job_id, "created": datetime.now().isoformat(),
-                       "artifacts": self.manifest}, f, indent=2)
+            json.dump(
+                {"job_id": self.job_id, "created": datetime.now().isoformat(), "artifacts": self.manifest}, f, indent=2
+            )
         return path
 
     def save_metrics(self, metrics: Dict[str, Any]) -> Path:

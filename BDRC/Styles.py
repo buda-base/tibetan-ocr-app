@@ -1,6 +1,3 @@
-import resources
-
-
 DARK = """
     /* Global button styles */
 
@@ -153,7 +150,7 @@ DARK = """
 
     QTabWidget::pane {
         background-color: #242424;
-        border-width: 0px;  
+        border-width: 0px;
         border-radius: 6px;
     }
 
@@ -174,7 +171,7 @@ DARK = """
     QTabBar::tab:selected {
         background: #730017;
         margin-bottom: -1px;
-    }  
+    }
 
     QPushButton#DialogButton {
         color: #ffffff;
@@ -298,7 +295,7 @@ DARK = """
     QGraphicsView#PTGraphicsView {
         background-color: #172832;
     }
-    
+
     QScrollBar:vertical {
         border: none;
         background: #2d2d46;
@@ -329,7 +326,7 @@ DARK = """
     QMessageBox#NotificationWindow {
         color: #ffffff;
         background-color: #1d1c1c;
-                    
+
         QPushButton {
             width: 200px;
             padding: 5px;

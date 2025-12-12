@@ -11,78 +11,47 @@ Note: Line detection/sorting and image dewarping functions have been moved to
 separate modules and are re-exported here for backward compatibility.
 """
 
-import os
-import cv2
 import json
-import math
-import scipy
 import logging
+import math
+import os
 import platform
+from datetime import datetime
+from math import ceil
+from pathlib import Path
+from typing import List, Optional, Tuple
+
+import cv2
 import numpy as np
 import numpy.typing as npt
 import onnxruntime as ort
-
-from math import ceil
-from uuid import uuid1
-from pathlib import Path
-from datetime import datetime
-from tps import ThinPlateSpline
-from typing import List, Tuple, Optional, Sequence
-
-from BDRC.Data import OCRModelConfig, Platform, ScreenData, BBox, Line, \
-    OCRModel, OCRData
-from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QImage, Qt
+from PySide6.QtWidgets import QApplication
 
-from Config import OCRARCHITECTURE, CHARSETENCODER
+from BDRC.data import BBox, Line, OCRData, OCRModel, OCRModelConfig, Platform, ScreenData
 
 # Import functions from specialized modules for backward compatibility
-from BDRC.line_detection import (
-    get_line_threshold,
-    sort_bbox_centers,
-    group_line_chunks,
-    sort_lines_by_threshold,
-    sort_lines_by_threshold2,
-    build_line_data,
-    build_raw_line_data,
-    extract_line_images,
-    extract_line,
-    get_line_image,
-    filter_line_contours,
-    get_rotation_angle_from_lines,
-    calculate_rotation_angle_from_lines,
-    optimize_countour,
-    get_contours,
-    rotate_from_angle,
-    mask_n_crop
-)
-
-from BDRC.image_dewarping import (
-    run_tps,
-    apply_global_tps,
-    check_line_tps,
-    check_for_tps,
-    get_global_tps_line,
-    get_line_images_via_local_tps,
-    get_global_center
-)
+# Import generate_guid from line_detection module for backward compatibility
+from BDRC.line_detection import calculate_rotation_angle_from_lines, generate_guid, mask_n_crop, rotate_from_angle
+from Config import CHARSETENCODER, OCRARCHITECTURE
 
 page_classes = {
-                "background": "0, 0, 0",
-                "image": "45, 255, 0",
-                "line": "255, 100, 0",
-                "margin": "255, 0, 0",
-                "caption": "255, 100, 243"
-            }
+    "background": "0, 0, 0",
+    "image": "45, 255, 0",
+    "line": "255, 100, 0",
+    "margin": "255, 0, 0",
+    "caption": "255, 100, 243",
+}
+
 
 def get_screen_center(app: QApplication, start_size_ratio: float = 0.8) -> ScreenData:
     """
     Calculate optimal window size and position for the application.
-    
+
     Args:
         app: QApplication instance to get screen information from
         start_size_ratio: Ratio of screen size to use for initial window size
-        
+
     Returns:
         ScreenData with calculated dimensions and positioning
     """
@@ -108,10 +77,11 @@ def get_screen_center(app: QApplication, start_size_ratio: float = 0.8) -> Scree
 
     return screen_data
 
+
 def get_platform() -> Platform:
     """
     Detect the current operating system platform.
-    
+
     Returns:
         Platform enum value for Windows, Mac, or Linux
     """
@@ -119,30 +89,32 @@ def get_platform() -> Platform:
     _platform_tag = _platform_tag.split("-")[0]
 
     if _platform_tag == "Windows":
-        _platform = Platform.Windows
+        _platform = Platform.WINDOWS
     elif _platform_tag == "macOS":
-        _platform = Platform.Mac
+        _platform = Platform.OSX
     else:
-        _platform = Platform.Linux
+        _platform = Platform.LINUX
 
     return _platform
+
 
 def get_utc_time():
     """
     Get current UTC time as a formatted string.
-    
+
     Returns:
         Current UTC time in ISO format (YYYY-MM-DDTHH:MM:SS)
     """
     utc_time = datetime.now()
-    utc_time = utc_time.strftime('%Y-%m-%dT%H:%M:%S')
+    utc_time = utc_time.strftime("%Y-%m-%dT%H:%M:%S")
 
     return utc_time
+
 
 def get_execution_providers() -> List[str]:
     """
     Get available ONNX runtime execution providers.
-    
+
     Returns:
         List of available execution provider names
     """
@@ -150,13 +122,14 @@ def get_execution_providers() -> List[str]:
     print(f"Available ONNX providers: {available_providers}")
     return available_providers
 
+
 def get_filename(file_path: str) -> str:
     """
     Extract filename without extension from a file path.
-    
+
     Args:
         file_path: Full path to the file
-        
+
     Returns:
         Filename without extension
     """
@@ -164,10 +137,11 @@ def get_filename(file_path: str) -> str:
     name = "".join(f"{x}." for x in name_segments)
     return name.rstrip(".")
 
+
 def create_dir(dir_name: str) -> None:
     """
     Create a directory if it doesn't exist.
-    
+
     Args:
         dir_name: Path of the directory to create
     """
@@ -178,35 +152,33 @@ def create_dir(dir_name: str) -> None:
         except IOError as e:
             print(f"Failed to create directory at: {dir_name}, {e}")
 
-# Import generate_guid from line_detection module for backward compatibility
-from BDRC.line_detection import generate_guid
 
 def build_ocr_data(id_val, file_path: str, target_width: int = None):
     """
     Build OCR data from a file path.
-    
+
     Args:
         id_val: Either an integer or a UUID to use as the identifier
         file_path: Path to the image file
         target_width: Optional width to scale the image to
-    
+
     Returns:
         OCRData object
     """
     file_name = get_filename(file_path)
-    
+
     # Generate GUID if id_val is an integer, otherwise use the provided UUID
     if isinstance(id_val, int):
         guid = generate_guid(id_val)
     else:
         guid = id_val
-    
+
     # Load and scale the image
     if target_width is not None:
         q_image = QImage(file_path).scaledToWidth(target_width, Qt.TransformationMode.SmoothTransformation)
     else:
         q_image = QImage(file_path)
-    
+
     ocr_data = OCRData(
         guid=guid,
         image_path=file_path,
@@ -215,37 +187,39 @@ def build_ocr_data(id_val, file_path: str, target_width: int = None):
         ocr_lines=None,
         lines=None,
         preview=None,
-        angle=0.0
+        angle=0.0,
     )
 
     return ocr_data
 
+
 def read_theme_file(file_path: str) -> dict | None:
     """
     Load theme configuration from a JSON file.
-    
+
     Args:
         file_path: Path to the theme configuration file
-        
+
     Returns:
         Theme configuration dictionary, or None if file doesn't exist
     """
     if os.path.isfile(file_path):
-        with open(file_path, "r") as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             content = json.load(f)
 
         return content
     else:
-        logging.error(f"Theme File {file_path} does not exist")
+        logging.error("Theme File %s does not exist", file_path)
         return None
+
 
 def import_local_models(model_path: str):
     """
     Import all OCR models from a directory.
-    
+
     Args:
         model_path: Directory path containing OCR model subdirectories
-        
+
     Returns:
         List of OCRModel instances loaded from the directory
     """
@@ -257,29 +231,25 @@ def import_local_models(model_path: str):
             if os.path.isdir(sub_dir):
                 _config_file = os.path.join(sub_dir, "model_config.json")
                 if not os.path.isfile(_config_file):
-                    logging.warn("ignore "+str(sub_dir))
+                    logging.warning("ignore %s", sub_dir)
                     tick += 1
                     continue
 
                 _config = read_ocr_model_config(_config_file)
-                _model = OCRModel(
-                    guid=generate_guid(tick),
-                    name=sub_dir.name,
-                    path=str(sub_dir),
-                    config=_config
-                )
+                _model = OCRModel(guid=generate_guid(tick), name=sub_dir.name, path=str(sub_dir), config=_config)
                 ocr_models.append(_model)
             tick += 1
 
     return ocr_models
 
+
 def import_local_model(model_path: str):
     """
     Import a single OCR model from a directory.
-    
+
     Args:
         model_path: Directory path containing a single OCR model
-        
+
     Returns:
         OCRModel instance or None if model cannot be loaded
     """
@@ -290,22 +260,18 @@ def import_local_model(model_path: str):
             return None
 
         _config = read_ocr_model_config(_config_file)
-        _model = OCRModel(
-            guid=generate_guid(1),
-            name=Path(model_path).name,
-            path=model_path,
-            config=_config
-        )
+        _model = OCRModel(guid=generate_guid(1), name=Path(model_path).name, path=model_path, config=_config)
 
     return _model
+
 
 def read_ocr_model_config(config_file: str):
     """
     Load OCR model configuration from a JSON file.
-    
+
     Args:
         config_file: Path to the model configuration JSON file
-        
+
     Returns:
         OCRModelConfig instance with loaded parameters
     """
@@ -321,9 +287,7 @@ def read_ocr_model_config(config_file: str):
     input_layer = json_content["input_layer"]
     output_layer = json_content["output_layer"]
     encoder = json_content["encoder"]
-    squeeze_channel_dim = (
-        True if json_content["squeeze_channel_dim"] == "yes" else False
-    )
+    squeeze_channel_dim = True if json_content["squeeze_channel_dim"] == "yes" else False
     swap_hw = True if json_content["swap_hw"] == "yes" else False
     characters = json_content["charset"]
     add_blank = True if json_content["add_blank"] == "yes" else False
@@ -340,19 +304,20 @@ def read_ocr_model_config(config_file: str):
         encoder=CHARSETENCODER[encoder],
         charset=characters,
         add_blank=add_blank,
-        version=version
+        version=version,
     )
 
     return config
 
+
 def resize_to_height(image, target_height: int):
     """
     Resize image to a specific height while maintaining aspect ratio.
-    
+
     Args:
         image: Input image array
         target_height: Desired height in pixels
-        
+
     Returns:
         Tuple of (resized_image, scale_ratio)
     """
@@ -364,14 +329,15 @@ def resize_to_height(image, target_height: int):
     )
     return image, scale_ratio
 
+
 def resize_to_width(image, target_width: int = 2048):
     """
     Resize image to a specific width while maintaining aspect ratio.
-    
+
     Args:
         image: Input image array
         target_width: Desired width in pixels (default: 2048)
-        
+
     Returns:
         Tuple of (resized_image, scale_ratio)
     """
@@ -383,14 +349,15 @@ def resize_to_width(image, target_width: int = 2048):
     )
     return image, scale_ratio
 
+
 def calculate_steps(image: npt.NDArray, patch_size: int = 512) -> Tuple[int, int]:
     """
     Calculate number of patches needed to tile an image.
-    
+
     Args:
         image: Input image array
         patch_size: Size of each square patch (default: 512)
-        
+
     Returns:
         Tuple of (x_steps, y_steps) for tiling
     """
@@ -402,18 +369,17 @@ def calculate_steps(image: npt.NDArray, patch_size: int = 512) -> Tuple[int, int
 
     return x_steps, y_steps
 
-def calculate_paddings(
-    image: npt.NDArray, x_steps: int, y_steps: int, patch_size: int = 512
-) -> tuple[int, int]:
+
+def calculate_paddings(image: npt.NDArray, x_steps: int, y_steps: int, patch_size: int = 512) -> tuple[int, int]:
     """
     Calculate padding needed to make image divisible into patches.
-    
+
     Args:
         image: Input image array
         x_steps: Number of horizontal patches
         y_steps: Number of vertical patches
         patch_size: Size of each patch
-        
+
     Returns:
         Tuple of (pad_x, pad_y) padding values
     """
@@ -424,18 +390,17 @@ def calculate_paddings(
 
     return pad_x, pad_y
 
-def pad_image(
-    image: npt.NDArray, pad_x: int, pad_y: int, pad_value: int = 0
-) -> npt.NDArray:
+
+def pad_image(image: npt.NDArray, pad_x: int, pad_y: int, pad_value: int = 0) -> npt.NDArray:
     """
     Add padding to an image.
-    
+
     Args:
         image: Input image array
         pad_x: Horizontal padding to add
         pad_y: Vertical padding to add
         pad_value: Value to use for padding (default: 0)
-        
+
     Returns:
         Padded image array
     """
@@ -448,21 +413,21 @@ def pad_image(
 
     return padded_img
 
+
 def sigmoid(x):
     """
     Apply sigmoid activation function.
-    
+
     Args:
         x: Input value or array
-        
+
     Returns:
         Sigmoid of input (value between 0 and 1)
     """
     return 1 / (1 + np.exp(-x))
 
-def get_text_area(
-    image: np.array, prediction: npt.NDArray
-) -> Tuple[np.array, BBox] | Tuple[None, None, None]:
+
+def get_text_area(image: np.array, prediction: npt.NDArray) -> Tuple[np.array, BBox] | Tuple[None, None, None]:
     dil_kernel = np.ones((12, 2))
     dil_prediction = cv2.dilate(prediction, kernel=dil_kernel, iterations=10)
 
@@ -494,6 +459,7 @@ def get_text_area(
     else:
         return None, None, None
 
+
 def get_text_bbox(lines: List[Line]):
     all_bboxes = [x.bbox for x in lines]
     min_x = min(a.x for a in all_bboxes)
@@ -506,15 +472,18 @@ def get_text_bbox(lines: List[Line]):
 
     return bbox
 
+
 def pol2cart(theta, rho):
     x = rho * np.cos(theta)
     y = rho * np.sin(theta)
     return x, y
 
+
 def cart2pol(x, y):
     theta = np.arctan2(y, x)
     rho = np.hypot(x, y)
     return theta, rho
+
 
 def rotate_contour(cnt, center: Tuple[int, int], angle: float):
     cx = center[0]
@@ -540,26 +509,27 @@ def rotate_contour(cnt, center: Tuple[int, int], angle: float):
 
     return cnt_rotated
 
+
 def is_inside_rectangle(point, rect):
     x, y = point
     xmin, ymin, xmax, ymax = rect
     return xmin <= x <= xmax and ymin <= y <= ymax
 
+
 def filter_contours(prediction: np.array, textarea_contour: np.array) -> list[np.array]:
     filtered_contours = []
     x, y, w, h = cv2.boundingRect(textarea_contour)
-    line_contours, _ = cv2.findContours(
-        prediction, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
-    )
+    line_contours, _ = cv2.findContours(prediction, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
     for cnt in line_contours:
-        center, _, angle = cv2.minAreaRect(cnt)
+        center, _, _ = cv2.minAreaRect(cnt)
         is_in_area = is_inside_rectangle(center, [x, y, x + w, y + h])
 
         if is_in_area:
             filtered_contours.append(cnt)
 
     return filtered_contours
+
 
 def post_process_prediction(image: np.array, prediction: np.array):
     prediction, text_area, textarea_contour = get_text_area(image, prediction)
@@ -571,14 +541,15 @@ def post_process_prediction(image: np.array, prediction: np.array):
         rotated_image = rotate_from_angle(image, angle)
         rotated_prediction = rotate_from_angle(prediction, angle)
 
-        M = cv2.moments(textarea_contour)
-        cx = int(M["m10"] / M["m00"])
-        cy = int(M["m01"] / M["m00"])
+        moments = cv2.moments(textarea_contour)
+        cx = int(moments["m10"] / moments["m00"])
+        cy = int(moments["m01"] / moments["m00"])
         rotated_textarea_contour = rotate_contour(textarea_contour, (cx, cy), angle)
 
         return rotated_image, rotated_prediction, rotated_textarea_contour, angle
     else:
         return None, None, None, None
+
 
 def generate_line_preview(prediction: np.array, filtered_contours: list[np.array]):
     preview = np.zeros(shape=prediction.shape, dtype=np.uint8)
@@ -587,6 +558,7 @@ def generate_line_preview(prediction: np.array, filtered_contours: list[np.array
         cv2.drawContours(preview, [cnt], -1, color=(255, 0, 0), thickness=-1)
 
     return preview
+
 
 def tile_image(padded_img: npt.NDArray, patch_size: int = 512):
     x_steps = int(padded_img.shape[1] / patch_size)
@@ -598,12 +570,14 @@ def tile_image(padded_img: npt.NDArray, patch_size: int = 512):
 
     return patches, y_steps
 
+
 def stitch_predictions(prediction: npt.NDArray, y_steps: int) -> npt.NDArray:
     pred_y_split = np.split(prediction, y_steps, axis=0)
     x_slices = [np.hstack(x) for x in pred_y_split]
     concat_img = np.vstack(x_slices)
 
     return concat_img
+
 
 def get_paddings(image: npt.NDArray, patch_size: int = 512) -> Tuple[int, int]:
     max_x = ceil(image.shape[1] / patch_size) * patch_size
@@ -612,6 +586,7 @@ def get_paddings(image: npt.NDArray, patch_size: int = 512) -> Tuple[int, int]:
     pad_y = max_y - image.shape[0]
 
     return pad_x, pad_y
+
 
 def preprocess_image(
     image: npt.NDArray,
@@ -622,26 +597,24 @@ def preprocess_image(
 ):
     """
     Preprocess image for OCR by resizing and padding to patch-compatible dimensions.
-    
-    Some dimension checking and resizing to avoid very large inputs on which the line(s) 
+
+    Some dimension checking and resizing to avoid very large inputs on which the line(s)
     on the resulting tiles could be too big and cause troubles with the current line model.
-    
+
     Args:
         image: Input image array
         patch_size: Target patch size for tiling
         clamp_width: Maximum allowed width
         clamp_height: Maximum allowed height
         clamp_size: Whether to enforce size limits
-        
+
     Returns:
         Tuple of (processed_image, pad_x, pad_y)
     """
     if clamp_size and image.shape[1] > image.shape[0] and image.shape[1] > clamp_width:
         image, _ = resize_to_width(image, clamp_width)
 
-    elif (
-        clamp_size and image.shape[0] > image.shape[1] and image.shape[0] > clamp_height
-    ):
+    elif clamp_size and image.shape[0] > image.shape[1] and image.shape[0] > clamp_height:
         image, _ = resize_to_height(image, clamp_height)
 
     elif image.shape[0] < patch_size:
@@ -652,13 +625,14 @@ def preprocess_image(
 
     return padded_img, pad_x, pad_y
 
+
 def normalize(image: npt.NDArray) -> npt.NDArray:
     """
     Normalize image pixel values to range [0, 1].
-    
+
     Args:
         image: Input image array with values in range [0, 255]
-        
+
     Returns:
         Normalized image array with values in range [0, 1]
     """
@@ -666,9 +640,8 @@ def normalize(image: npt.NDArray) -> npt.NDArray:
     image /= 255.0
     return image
 
-def binarize(
-        img: npt.NDArray, adaptive: bool = True, block_size: int = 51, c: int = 13
-) -> npt.NDArray:
+
+def binarize(img: npt.NDArray, adaptive: bool = True, block_size: int = 51, c: int = 13) -> npt.NDArray:
     line_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
 
     if adaptive:
@@ -687,9 +660,10 @@ def binarize(
     bw = cv2.cvtColor(bw, cv2.COLOR_GRAY2RGB)
     return bw
 
+
 def pad_to_width(img: np.array, target_width: int, target_height: int, padding: str) -> np.array:
-    _, width, channels = img.shape
-    tmp_img, ratio = resize_to_width(img, target_width)
+    _, _, channels = img.shape
+    tmp_img, _ = resize_to_width(img, target_width)
 
     height = tmp_img.shape[0]
     middle = (target_height - tmp_img.shape[0]) // 2
@@ -708,9 +682,10 @@ def pad_to_width(img: np.array, target_width: int, target_height: int, padding: 
 
     return out_img
 
+
 def pad_to_height(img: npt.NDArray, target_width: int, target_height: int, padding: str) -> npt.NDArray:
-    height, _, channels = img.shape
-    tmp_img, ratio = resize_to_height(img, target_height)
+    _, _, channels = img.shape
+    tmp_img, _ = resize_to_height(img, target_height)
 
     width = tmp_img.shape[1]
     middle = (target_width - width) // 2
@@ -730,11 +705,10 @@ def pad_to_height(img: npt.NDArray, target_width: int, target_height: int, paddi
 
     return out_img
 
+
 def pad_ocr_line(
-        img: npt.NDArray,
-        target_width: int = 3000,
-        target_height: int = 80,
-        padding: str = "black") -> npt.NDArray:
+    img: npt.NDArray, target_width: int = 3000, target_height: int = 80, padding: str = "black"
+) -> npt.NDArray:
 
     width_ratio = target_width / img.shape[1]
     height_ratio = target_height / img.shape[0]
@@ -749,49 +723,41 @@ def pad_ocr_line(
 
     return cv2.resize(out_img, (target_width, target_height), interpolation=cv2.INTER_LINEAR)
 
+
 def create_preview_image(
-            image: npt.NDArray,
-            image_predictions: Optional[List],
-            line_predictions: Optional[List],
-            caption_predictions: Optional[List],
-            margin_predictions: Optional[List],
-            alpha: float = 0.4,
-    ) -> npt.NDArray:
-        mask = np.zeros(image.shape, dtype=np.uint8)
+    image: npt.NDArray,
+    image_predictions: Optional[List],
+    line_predictions: Optional[List],
+    caption_predictions: Optional[List],
+    margin_predictions: Optional[List],
+    alpha: float = 0.4,
+) -> npt.NDArray:
+    mask = np.zeros(image.shape, dtype=np.uint8)
 
-        if image_predictions is not None and len(image_predictions) > 0:
-            color = tuple([int(x) for x in page_classes["image"].split(",")])
+    if image_predictions is not None and len(image_predictions) > 0:
+        color = tuple([int(x) for x in page_classes["image"].split(",")])
 
-            for idx, _ in enumerate(image_predictions):
-                cv2.drawContours(
-                    mask, image_predictions, contourIdx=idx, color=color, thickness=-1
-                )
+        for idx, _ in enumerate(image_predictions):
+            cv2.drawContours(mask, image_predictions, contourIdx=idx, color=color, thickness=-1)
 
-        if line_predictions is not None:
-            color = tuple([int(x) for x in page_classes["line"].split(",")])
+    if line_predictions is not None:
+        color = tuple([int(x) for x in page_classes["line"].split(",")])
 
-            for idx, _ in enumerate(line_predictions):
-                cv2.drawContours(
-                    mask, line_predictions, contourIdx=idx, color=color, thickness=-1
-                )
+        for idx, _ in enumerate(line_predictions):
+            cv2.drawContours(mask, line_predictions, contourIdx=idx, color=color, thickness=-1)
 
-        if len(caption_predictions) > 0:
-            color = tuple([int(x) for x in page_classes["caption"].split(",")])
+    if len(caption_predictions) > 0:
+        color = tuple([int(x) for x in page_classes["caption"].split(",")])
 
-            for idx, _ in enumerate(caption_predictions):
-                cv2.drawContours(
-                    mask, caption_predictions, contourIdx=idx, color=color, thickness=-1
-                )
+        for idx, _ in enumerate(caption_predictions):
+            cv2.drawContours(mask, caption_predictions, contourIdx=idx, color=color, thickness=-1)
 
-        if len(margin_predictions) > 0:
-            color = tuple([int(x) for x in page_classes["margin"].split(",")])
+    if len(margin_predictions) > 0:
+        color = tuple([int(x) for x in page_classes["margin"].split(",")])
 
-            for idx, _ in enumerate(margin_predictions):
-                cv2.drawContours(
-                    mask, margin_predictions, contourIdx=idx, color=color, thickness=-1
-                )
+        for idx, _ in enumerate(margin_predictions):
+            cv2.drawContours(mask, margin_predictions, contourIdx=idx, color=color, thickness=-1)
 
-        cv2.addWeighted(mask, alpha, image, 1 - alpha, 0, image)
+    cv2.addWeighted(mask, alpha, image, 1 - alpha, 0, image)
 
-        return image
-
+    return image

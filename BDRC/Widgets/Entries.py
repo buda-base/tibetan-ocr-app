@@ -1,11 +1,6 @@
 from uuid import UUID
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (
-    QWidget,
-    QLabel,
-    QHBoxLayout,
-    QPushButton
-)
+
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
 
 class ModelEntry(QWidget):
@@ -15,8 +10,8 @@ class ModelEntry(QWidget):
         self.title = title
 
         self.label = QLabel(self.title)
-        self.download_btn = QPushButton('Download')
-        self.delete_btn = QPushButton('Delete')
+        self.download_btn = QPushButton("Download")
+        self.delete_btn = QPushButton("Delete")
 
         self.h_layout = QHBoxLayout()
         self.h_layout.addWidget(self.label)
@@ -24,7 +19,6 @@ class ModelEntry(QWidget):
         self.h_layout.addWidget(self.delete_btn)
 
         self.setLayout(self.h_layout)
-
 
 
 class ModelEntryWidget(QWidget):
@@ -43,7 +37,7 @@ class ModelEntryWidget(QWidget):
         self.encoder_label.setObjectName("OptionsLabel")
         self.architecture_label = QLabel(self.architecture)
         self.architecture_label.setObjectName("OptionsLabel")
-        self.version_number =  QLabel(self.version)
+        self.version_number = QLabel(self.version)
         self.version_number.setObjectName("OptionsLabel")
         self.file_path = QLabel(self.file_path)
         self.file_path.setObjectName("OptionsLabel")
@@ -57,19 +51,25 @@ class ModelEntryWidget(QWidget):
         self.h_layout.addWidget(self.file_path)
         self.setLayout(self.h_layout)
 
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             color: #ffffff;
             width: 80%;
-        """)
+        """
+        )
 
     def set_dark_background(self):
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             color: #ffffff;
             background-color: #242424;
-        """)
+        """
+        )
 
     def set_light_background(self):
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             color: #ffffff;
             background-color: #3a3a3a;    
-        """)
+        """
+        )

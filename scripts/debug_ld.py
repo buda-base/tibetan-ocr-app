@@ -1,26 +1,18 @@
+import argparse
 import os
 import sys
-import argparse
+
 import cv2
 import numpy as np
 
-# Add the project root to the Python path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from BDRC.data import LayoutDetectionConfig, LineDetectionConfig
+from BDRC.image_dewarping import apply_global_tps, check_for_tps
+from BDRC.inference import LayoutDetection, LineDetection
+from BDRC.line_detection import build_line_data, build_raw_line_data, filter_line_contours, sort_lines_by_threshold2
+from BDRC.utils import get_platform
 
-from BDRC.Utils import get_platform
-from BDRC.Data import LineDetectionConfig, LayoutDetectionConfig
-from BDRC.Inference import LineDetection, LayoutDetection
-from BDRC.line_detection import (
-    build_raw_line_data,
-    filter_line_contours,
-    build_line_data,
-    sort_lines_by_threshold2,
-    extract_line_images
-)
-from BDRC.image_dewarping import (
-    check_for_tps,
-    apply_global_tps
-)
+# Add the project root to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 def main():
@@ -52,7 +44,11 @@ def main():
         line_config = LineDetectionConfig(model_file="../Models/Lines/PhotiLines.onnx", patch_size=512)
         line_inference = LineDetection(platform, line_config)
     else:
-        line_config = LayoutDetectionConfig(model_file="../Models/Layout/photi.onnx", patch_size=512, classes=["background", "image", "line", "caption", "margin"])
+        line_config = LayoutDetectionConfig(
+            model_file="../Models/Layout/photi.onnx",
+            patch_size=512,
+            classes=["background", "image", "line", "caption", "margin"],
+        )
         line_inference = LayoutDetection(platform, line_config)
 
     # Line detection
@@ -61,10 +57,10 @@ def main():
     else:
         layout_mask = line_inference.predict(image)
         line_mask = layout_mask[:, :, 2]
-    
+
     # Build line data
-    rot_img, rot_mask, line_contours, page_angle = build_raw_line_data(image, line_mask)
-    
+    rot_img, rot_mask, line_contours, _ = build_raw_line_data(image, line_mask)
+
     # Filter contours
     filtered_contours = filter_line_contours(rot_mask, line_contours)
 
@@ -72,7 +68,7 @@ def main():
     dewarped_img = None
     if args.dewarp:
         ratio, tps_line_data = check_for_tps(rot_img, filtered_contours)
-        if ratio > 0.25: # threshold from OCRPipeline
+        if ratio > 0.25:  # threshold from OCRPipeline
             dewarped_img, dewarped_mask = apply_global_tps(rot_img, rot_mask, tps_line_data)
             if len(dewarped_mask.shape) == 3:
                 dewarped_mask = cv2.cvtColor(dewarped_mask, cv2.COLOR_RGB2GRAY)
@@ -113,16 +109,20 @@ def main():
 
         dew_rot_img, dew_rot_mask, dew_line_contours, _ = build_raw_line_data(dewarped_img, dewarped_line_mask)
         dew_filtered_contours = filter_line_contours(dew_rot_mask, dew_line_contours)
-        
+
         dewarped_segmented_before = np.zeros_like(dew_rot_img)
         cv2.drawContours(dewarped_segmented_before, dew_filtered_contours, -1, (255, 255, 255), -1)
-        cv2.imwrite(os.path.join(output_dir, "04_dewarped_segmented_lines_before_expansion.png"), dewarped_segmented_before)
+        cv2.imwrite(
+            os.path.join(output_dir, "04_dewarped_segmented_lines_before_expansion.png"), dewarped_segmented_before
+        )
 
         dew_line_data = [build_line_data(x) for x in dew_filtered_contours]
         dew_sorted_lines, _ = sort_lines_by_threshold2(dew_rot_mask, dew_line_data, group_lines=True)
         dewarped_segmented_after = np.zeros_like(dew_rot_img)
         cv2.drawContours(dewarped_segmented_after, [l.contour for l in dew_sorted_lines], -1, (255, 255, 255), -1)
-        cv2.imwrite(os.path.join(output_dir, "05_dewarped_segmented_lines_after_expansion.png"), dewarped_segmented_after)
+        cv2.imwrite(
+            os.path.join(output_dir, "05_dewarped_segmented_lines_after_expansion.png"), dewarped_segmented_after
+        )
 
     print(f"Debug images saved to {output_dir}")
 
